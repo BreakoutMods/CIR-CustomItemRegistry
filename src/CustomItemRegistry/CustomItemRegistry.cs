@@ -24,43 +24,129 @@ namespace ValheimCustomItemRegistry
         private static ManualLogSource logger;
 
         /// <summary>
+        /// Start a fluent CIR 0.2 custom item definition.
+        /// </summary>
+        public static CustomItemBuilder Item(string itemName)
+        {
+            return new CustomItemBuilder(itemName);
+        }
+
+        /// <summary>
         /// Load a prefab from an AssetBundle, clone it as itemName, create a recipe, and register it with Valheim.
         /// </summary>
         public static void RegisterItem(string itemName, string assetBundlePath, string prefabName, CraftingRecipe recipe)
         {
-            ValidateRegistration(itemName, assetBundlePath, prefabName);
-
             if (RegisteredItems.ContainsKey(itemName))
             {
                 LogWarning($"Item '{itemName}' is already registered");
                 return;
             }
 
-            AssetBundle assetBundle = LoadAssetBundle(assetBundlePath);
-            GameObject sourcePrefab = assetBundle.LoadAsset<GameObject>(prefabName);
-            if (!sourcePrefab)
+            RegisterItem(new CustomItemDefinition(itemName)
             {
-                throw new InvalidOperationException($"AssetBundle '{assetBundlePath}' does not contain prefab '{prefabName}'");
+                AssetBundlePath = assetBundlePath,
+                PrefabName = prefabName,
+                Recipe = recipe,
+                HasRecipe = true
+            });
+        }
+
+        /// <summary>
+        /// Register a complete CIR 0.2 custom item definition.
+        /// </summary>
+        public static ItemRegistrationResult RegisterItem(CustomItemDefinition definition)
+        {
+            GameObject itemPrefab = null;
+
+            try
+            {
+                ValidateDefinition(definition);
+
+                AssetBundle assetBundle = LoadAssetBundle(definition.AssetBundlePath);
+                GameObject sourcePrefab = assetBundle.LoadAsset<GameObject>(definition.PrefabName);
+                if (!sourcePrefab)
+                {
+                    throw new CustomItemRegistrationException(definition, "AssetBundle does not contain the requested prefab");
+                }
+
+                itemPrefab = Object.Instantiate(sourcePrefab);
+                itemPrefab.name = definition.ItemName;
+                itemPrefab.SetActive(false);
+
+                PrepareItemPrefab(itemPrefab);
+                LoadIcon(definition, assetBundle);
+
+                ItemConfig itemConfig = CreateItemConfig(definition);
+                CustomItem customItem = new CustomItem(itemPrefab, true, itemConfig);
+
+                ApplyGearMetadata(definition, itemPrefab);
+                ApplySharedDataConfigurators(definition, itemPrefab);
+                ValidatePreparedItem(definition, itemPrefab, customItem);
+                WarnForMissingIngredients(definition);
+
+                if (!ItemManager.Instance.AddItem(customItem))
+                {
+                    throw new CustomItemRegistrationException(definition, "Jotunn rejected the custom item");
+                }
+
+                RegisteredItems.Add(definition.ItemName, new RegisteredItem(definition.ItemName, itemPrefab, customItem));
+                FlushLiveRegistrations();
+
+                ItemRegistrationResult result = ItemRegistrationResult.Registered(definition, itemPrefab, customItem);
+                LogInfo($"Registered custom item '{definition.ItemName}' from bundle '{definition.AssetBundlePath}' prefab '{definition.PrefabName}'");
+                return result;
+            }
+            catch (Exception exception)
+            {
+                if (itemPrefab)
+                {
+                    Object.Destroy(itemPrefab);
+                }
+
+                CustomItemRegistrationException existingRegistrationException = exception as CustomItemRegistrationException;
+                CustomItemRegistrationException registrationException = existingRegistrationException != null && !string.IsNullOrEmpty(existingRegistrationException.ItemName)
+                    ? existingRegistrationException
+                    : new CustomItemRegistrationException(definition, exception.Message, exception);
+
+                LogWarning(registrationException.Message);
+                throw registrationException;
+            }
+        }
+
+        /// <summary>
+        /// Try to register a custom item without throwing on validation or registration failure.
+        /// </summary>
+        public static bool TryRegisterItem(CustomItemDefinition definition, out ItemRegistrationResult result)
+        {
+            try
+            {
+                result = RegisterItem(definition);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                result = ItemRegistrationResult.Failed(definition, exception);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Register several item definitions in order. Throws on the first failed item.
+        /// </summary>
+        public static IReadOnlyList<ItemRegistrationResult> RegisterItems(IEnumerable<CustomItemDefinition> definitions)
+        {
+            if (definitions == null)
+            {
+                throw new ArgumentNullException(nameof(definitions));
             }
 
-            GameObject itemPrefab = Object.Instantiate(sourcePrefab);
-            itemPrefab.name = itemName;
-            itemPrefab.SetActive(false);
-
-            PrepareItemPrefab(itemPrefab);
-
-            ItemConfig itemConfig = CreateItemConfig(itemName, recipe);
-            CustomItem customItem = new CustomItem(itemPrefab, true, itemConfig);
-
-            if (!ItemManager.Instance.AddItem(customItem))
+            List<ItemRegistrationResult> results = new List<ItemRegistrationResult>();
+            foreach (CustomItemDefinition definition in definitions)
             {
-                Object.Destroy(itemPrefab);
-                throw new InvalidOperationException($"Jotunn rejected custom item '{itemName}'");
+                results.Add(RegisterItem(definition));
             }
 
-            RegisteredItems.Add(itemName, new RegisteredItem(itemName, itemPrefab, customItem));
-            FlushLiveRegistrations();
-            LogInfo($"Registered custom item '{itemName}' from prefab '{prefabName}'");
+            return results;
         }
 
         internal static void SetLogger(ManualLogSource manualLogSource)
@@ -106,21 +192,104 @@ namespace ValheimCustomItemRegistry
             LoadedAssetBundles.Clear();
         }
 
-        private static void ValidateRegistration(string itemName, string assetBundlePath, string prefabName)
+        private static void ValidateDefinition(CustomItemDefinition definition)
         {
-            if (string.IsNullOrWhiteSpace(itemName))
+            if (definition == null)
             {
-                throw new ArgumentException("Item name is required", nameof(itemName));
+                throw new CustomItemRegistrationException("Custom item definition is required");
             }
 
-            if (string.IsNullOrWhiteSpace(assetBundlePath))
+            if (string.IsNullOrWhiteSpace(definition.ItemName))
             {
-                throw new ArgumentException("AssetBundle path is required", nameof(assetBundlePath));
+                throw new CustomItemRegistrationException(definition, "Item name is required");
             }
 
-            if (string.IsNullOrWhiteSpace(prefabName))
+            if (string.IsNullOrWhiteSpace(definition.AssetBundlePath))
             {
-                throw new ArgumentException("Prefab name is required", nameof(prefabName));
+                throw new CustomItemRegistrationException(definition, "AssetBundle path is required");
+            }
+
+            if (string.IsNullOrWhiteSpace(definition.PrefabName))
+            {
+                throw new CustomItemRegistrationException(definition, "Prefab name is required");
+            }
+
+            if (RegisteredItems.ContainsKey(definition.ItemName))
+            {
+                throw new CustomItemRegistrationException(definition, "Item name is already registered");
+            }
+
+            ValidateRecipe(definition);
+            ValidateGear(definition);
+        }
+
+        private static void ValidateRecipe(CustomItemDefinition definition)
+        {
+            if (!definition.HasRecipe)
+            {
+                return;
+            }
+
+            CraftingRecipe recipe = definition.Recipe;
+            if (recipe.amount <= 0)
+            {
+                throw new CustomItemRegistrationException(definition, "Recipe amount must be greater than zero");
+            }
+
+            if (recipe.minStationLevel < 0)
+            {
+                throw new CustomItemRegistrationException(definition, "Recipe minimum station level cannot be negative");
+            }
+
+            if (recipe.qualityResultAmountMultiplier < 0)
+            {
+                throw new CustomItemRegistrationException(definition, "Recipe quality result amount multiplier cannot be negative");
+            }
+
+            if (recipe.ingredients == null)
+            {
+                return;
+            }
+
+            foreach (Ingredient ingredient in recipe.ingredients)
+            {
+                if (string.IsNullOrWhiteSpace(ingredient.itemName))
+                {
+                    throw new CustomItemRegistrationException(definition, "Recipe contains an ingredient with an empty item name");
+                }
+
+                if (ingredient.amount <= 0)
+                {
+                    throw new CustomItemRegistrationException(definition, $"Recipe ingredient '{ingredient.itemName}' amount must be greater than zero");
+                }
+
+                if (ingredient.amountPerLevel < 0)
+                {
+                    throw new CustomItemRegistrationException(definition, $"Recipe ingredient '{ingredient.itemName}' amount per level cannot be negative");
+                }
+            }
+        }
+
+        private static void ValidateGear(CustomItemDefinition definition)
+        {
+            if (definition.Weight.HasValue && definition.Weight.Value < 0f)
+            {
+                throw new CustomItemRegistrationException(definition, "Weight cannot be negative");
+            }
+
+            if (definition.StackSize.HasValue && definition.StackSize.Value < 1)
+            {
+                throw new CustomItemRegistrationException(definition, "Stack size must be greater than zero");
+            }
+
+            if (definition.MaxDurability.HasValue && definition.MaxDurability.Value < 0f)
+            {
+                throw new CustomItemRegistrationException(definition, "Durability cannot be negative");
+            }
+
+            if (definition.MaxQuality.HasValue && definition.MaxQuality.Value < 1)
+            {
+                throw new CustomItemRegistrationException(definition, "Max quality must be greater than zero");
             }
         }
 
@@ -169,7 +338,7 @@ namespace ValheimCustomItemRegistry
             ItemDrop itemDrop = itemPrefab.GetComponent<ItemDrop>();
             if (!itemDrop)
             {
-                throw new InvalidOperationException($"Prefab '{itemPrefab.name}' must include an ItemDrop component");
+                throw new CustomItemRegistrationException($"Prefab '{itemPrefab.name}' must include an ItemDrop component");
             }
 
             if (itemDrop.m_itemData.m_shared == null)
@@ -193,22 +362,148 @@ namespace ValheimCustomItemRegistry
             zNetView.m_persistent = true;
         }
 
-        private static ItemConfig CreateItemConfig(string itemName, CraftingRecipe recipe)
+        private static void LoadIcon(CustomItemDefinition definition, AssetBundle assetBundle)
         {
-            List<Ingredient> ingredients = recipe.ingredients ?? new List<Ingredient>();
-
-            return new ItemConfig
+            if (definition.Icon || string.IsNullOrWhiteSpace(definition.IconAssetName))
             {
-                Amount = recipe.amount > 0 ? recipe.amount : 1,
-                CraftingStation = recipe.craftingStation,
+                return;
+            }
+
+            Sprite icon = assetBundle.LoadAsset<Sprite>(definition.IconAssetName);
+            if (!icon)
+            {
+                throw new CustomItemRegistrationException(definition, $"AssetBundle does not contain icon sprite '{definition.IconAssetName}'");
+            }
+
+            definition.Icon = icon;
+        }
+
+        private static ItemConfig CreateItemConfig(CustomItemDefinition definition)
+        {
+            CraftingRecipe recipe = definition.Recipe;
+            List<Ingredient> ingredients = definition.HasRecipe && recipe.ingredients != null
+                ? recipe.ingredients
+                : new List<Ingredient>();
+
+            ItemConfig config = new ItemConfig
+            {
+                Name = definition.DisplayName,
+                Description = definition.Description,
+                Icon = definition.Icon,
+                Amount = definition.HasRecipe ? recipe.amount : 1,
+                Enabled = !definition.HasRecipe || recipe.enabled.GetValueOrDefault(true),
+                CraftingStation = definition.HasRecipe ? recipe.craftingStation : null,
+                RepairStation = definition.HasRecipe ? recipe.repairStation : null,
+                MinStationLevel = definition.HasRecipe && recipe.minStationLevel > 0 ? recipe.minStationLevel : 1,
+                RequireOnlyOneIngredient = definition.HasRecipe && recipe.requireOnlyOneIngredient,
+                QualityResultAmountMultiplier = definition.HasRecipe && recipe.qualityResultAmountMultiplier > 0 ? recipe.qualityResultAmountMultiplier : 1,
+                Weight = definition.Weight.GetValueOrDefault(-1f),
+                StackSize = definition.StackSize.GetValueOrDefault(-1),
                 Requirements = ingredients
-                    .Where(ingredient => !string.IsNullOrWhiteSpace(ingredient.itemName))
                     .Select(ingredient => new RequirementConfig(
                         ingredient.itemName,
-                        ingredient.amount > 0 ? ingredient.amount : 1,
+                        ingredient.amount,
                         ingredient.amountPerLevel))
                     .ToArray()
             };
+
+            return config;
+        }
+
+        private static void ApplyGearMetadata(CustomItemDefinition definition, GameObject itemPrefab)
+        {
+            ItemDrop itemDrop = itemPrefab.GetComponent<ItemDrop>();
+            ItemDrop.ItemData.SharedData shared = itemDrop.m_itemData.m_shared;
+
+            if (definition.ItemType.HasValue) shared.m_itemType = definition.ItemType.Value;
+            if (definition.Weight.HasValue) shared.m_weight = definition.Weight.Value;
+            if (definition.StackSize.HasValue) shared.m_maxStackSize = definition.StackSize.Value;
+            if (definition.MaxDurability.HasValue)
+            {
+                shared.m_maxDurability = definition.MaxDurability.Value;
+                shared.m_useDurability = definition.MaxDurability.Value > 0f;
+            }
+
+            if (definition.DurabilityPerLevel.HasValue) shared.m_durabilityPerLevel = definition.DurabilityPerLevel.Value;
+            if (definition.MaxQuality.HasValue) shared.m_maxQuality = definition.MaxQuality.Value;
+            if (definition.ToolTier.HasValue) shared.m_toolTier = definition.ToolTier.Value;
+            if (definition.Armor.HasValue) shared.m_armor = definition.Armor.Value;
+            if (definition.ArmorPerLevel.HasValue) shared.m_armorPerLevel = definition.ArmorPerLevel.Value;
+            if (definition.BlockPower.HasValue) shared.m_blockPower = definition.BlockPower.Value;
+            if (definition.BlockPowerPerLevel.HasValue) shared.m_blockPowerPerLevel = definition.BlockPowerPerLevel.Value;
+            if (definition.DeflectionForce.HasValue) shared.m_deflectionForce = definition.DeflectionForce.Value;
+            if (definition.DeflectionForcePerLevel.HasValue) shared.m_deflectionForcePerLevel = definition.DeflectionForcePerLevel.Value;
+            if (definition.MovementModifier.HasValue) shared.m_movementModifier = definition.MovementModifier.Value;
+            if (definition.Teleportable.HasValue) shared.m_teleportable = definition.Teleportable.Value;
+            if (definition.CanBeRepaired.HasValue) shared.m_canBeReparied = definition.CanBeRepaired.Value;
+            if (definition.HasDamages) shared.m_damages = definition.Damages;
+            if (definition.HasDamagesPerLevel) shared.m_damagesPerLevel = definition.DamagesPerLevel;
+        }
+
+        private static void ApplySharedDataConfigurators(CustomItemDefinition definition, GameObject itemPrefab)
+        {
+            if (definition.SharedDataConfigurators.Count == 0)
+            {
+                return;
+            }
+
+            ItemDrop itemDrop = itemPrefab.GetComponent<ItemDrop>();
+            ItemDrop.ItemData.SharedData shared = itemDrop.m_itemData.m_shared;
+            foreach (Action<ItemDrop.ItemData.SharedData> configure in definition.SharedDataConfigurators)
+            {
+                configure(shared);
+            }
+        }
+
+        private static void ValidatePreparedItem(CustomItemDefinition definition, GameObject itemPrefab, CustomItem customItem)
+        {
+            ItemDrop itemDrop = itemPrefab.GetComponent<ItemDrop>();
+            if (!itemDrop)
+            {
+                throw new CustomItemRegistrationException(definition, "Prepared prefab is missing ItemDrop");
+            }
+
+            if (CreatesRecipe(definition))
+            {
+                Sprite[] icons = itemDrop.m_itemData?.m_shared?.m_icons;
+                if (icons == null || icons.Length == 0 || !icons[0])
+                {
+                    throw new CustomItemRegistrationException(definition, "Craftable items must have an icon; set it in the prefab or call .Icon(...)");
+                }
+            }
+
+            if (customItem == null || customItem.ItemPrefab == null)
+            {
+                throw new CustomItemRegistrationException(definition, "Jotunn custom item wrapper was not created");
+            }
+        }
+
+        private static bool CreatesRecipe(CustomItemDefinition definition)
+        {
+            return definition.HasRecipe
+                && definition.Recipe.ingredients != null
+                && definition.Recipe.ingredients.Count > 0;
+        }
+
+        private static void WarnForMissingIngredients(CustomItemDefinition definition)
+        {
+            if (!CreatesRecipe(definition))
+            {
+                return;
+            }
+
+            if (!ObjectDB.instance && !ZNetScene.instance)
+            {
+                return;
+            }
+
+            foreach (Ingredient ingredient in definition.Recipe.ingredients)
+            {
+                if (!PrefabManager.Instance.GetPrefab(ingredient.itemName))
+                {
+                    LogWarning($"Item '{definition.ItemName}' recipe ingredient '{ingredient.itemName}' was not found in loaded prefab databases. Jotunn may still resolve it later if another mod registers it.");
+                }
+            }
         }
 
         private static void RegisterPrefabInObjectDB(RegisteredItem item)

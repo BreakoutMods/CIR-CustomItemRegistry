@@ -26,13 +26,31 @@ namespace ValheimCustomItemRegistry
     {
         public List<Ingredient> ingredients;
         public string craftingStation;
+        public string repairStation;
         public int amount;
+        public int minStationLevel;
+        public bool? enabled;
+        public bool requireOnlyOneIngredient;
+        public int qualityResultAmountMultiplier;
 
-        public CraftingRecipe(List<Ingredient> ingredients, string craftingStation, int amount = 1)
+        public CraftingRecipe(
+            List<Ingredient> ingredients,
+            string craftingStation,
+            int amount = 1,
+            string repairStation = null,
+            int minStationLevel = 1,
+            bool enabled = true,
+            bool requireOnlyOneIngredient = false,
+            int qualityResultAmountMultiplier = 1)
         {
             this.ingredients = ingredients;
             this.craftingStation = craftingStation;
+            this.repairStation = repairStation;
             this.amount = amount;
+            this.minStationLevel = minStationLevel;
+            this.enabled = enabled;
+            this.requireOnlyOneIngredient = requireOnlyOneIngredient;
+            this.qualityResultAmountMultiplier = qualityResultAmountMultiplier;
         }
     }
 }
