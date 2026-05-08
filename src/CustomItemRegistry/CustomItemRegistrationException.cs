@@ -52,7 +52,8 @@ namespace ValheimCustomItemRegistry
                 return message;
             }
 
-            return $"Item '{definition.ItemName ?? "<null>"}' from bundle '{definition.AssetBundlePath ?? "<null>"}' prefab '{definition.PrefabName ?? "<null>"}': {message}";
+            string bundleName = definition.AssetBundlePath ?? (definition.AssetBundle ? definition.AssetBundle.name : "<null>");
+            return $"Item '{definition.ItemName ?? "<null>"}' from bundle '{bundleName}' prefab '{definition.PrefabName ?? "<null>"}': {message}";
         }
     }
 }

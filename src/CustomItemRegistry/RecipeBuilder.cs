@@ -58,9 +58,9 @@ namespace ValheimCustomItemRegistry
             return this;
         }
 
-        public RecipeBuilder Requires(string itemName, int amount, int amountPerLevel = 0)
+        public RecipeBuilder Requires(string itemName, int amount, int amountPerLevel = 0, bool recover = true)
         {
-            ingredients.Add(new Ingredient(itemName, amount, amountPerLevel));
+            ingredients.Add(new Ingredient(itemName, amount, amountPerLevel, recover));
             return this;
         }
 

@@ -11,6 +11,7 @@ namespace ValheimCustomItemRegistry
     {
         public string ItemName { get; set; }
         public string AssetBundlePath { get; set; }
+        public AssetBundle AssetBundle { get; set; }
         public string PrefabName { get; set; }
         public string DisplayName { get; set; }
         public string Description { get; set; }

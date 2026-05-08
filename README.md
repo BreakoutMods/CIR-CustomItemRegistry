@@ -31,7 +31,8 @@ CustomItemRegistry.Item("BreakoutSword")
         .StationLevel(2)
         .Amount(1)
         .Requires("FineWood", 4)
-        .Requires("Iron", 10))
+        .Requires("Iron", 10)
+        .Requires("Bronze", 0, 4))
     .Gear(gear => gear
         .OneHandedWeapon()
         .Weight(2f)
@@ -40,6 +41,9 @@ CustomItemRegistry.Item("BreakoutSword")
         .MaxQuality(4)
         .SlashDamage(35f)
         .BlockPower(20f)
+        .Parry(2f)
+        .AttackForce(30f)
+        .PrimaryAttackStamina(12f)
         .MovementModifier(-0.05f))
     .Register();
 ```
@@ -73,13 +77,15 @@ The AssetBundle prefab must include an `ItemDrop` component. If it does not alre
 - `RegisterItem(CustomItemDefinition definition)`, `TryRegisterItem(...)`, and `RegisterItems(...)`.
 - `CustomItemBuilder`, `RecipeBuilder`, `GearBuilder`, `CustomItemDefinition`, `ItemRegistrationResult`, and `CustomItemRegistrationException`.
 - `CraftingRecipe` with ingredients, crafting station, repair station, station level, amount, enabled flag, require-only-one ingredient, and quality result multiplier.
+- AssetBundles can be loaded from file paths, passed as preloaded `AssetBundle` instances, or loaded from embedded resources with `.FromEmbeddedResource(...)`.
 
 #### Item Metadata
 
 - Display name, description, icon sprite by AssetBundle asset name, or direct `Sprite`.
 - Weight, stack size, durability, max quality, tool tier, teleportable flag, and repairable flag.
-- Item type helpers for one-handed weapon, two-handed weapon, shield, bow, tool, armor, helmet, chest, legs, and utility.
-- Armor, block power, block force, movement modifier, base damages, and per-level damages.
+- Item type helpers for weapons, shields, bows, ammo, tools, armor slots, materials, consumables, shoulder items, trinkets, torches, and utility items.
+- Armor, block power, block force, parry, attack force, movement modifier, base damages, per-level damages, and damage modifiers.
+- Primary and secondary attack tuning for stamina, eitr, health costs, force multipliers, projectile count, projectile velocity, draw duration, draw stamina drain, reload time, and reload stamina drain.
 - `.ConfigureSharedData(...)` escape hatch for advanced `ItemDrop.ItemData.SharedData` edits.
 
 #### Registration
@@ -131,6 +137,8 @@ Debug builds copy the API DLL into `BepInEx/plugins/CustomItemRegistry` and the 
 - Use internal Valheim prefab names for ingredients, such as `Wood`, `Bronze`, `LeatherScraps`, `FineWood`, or `Crystal`.
 - Use Jotunn's accepted crafting station names. Common examples are `piece_workbench`, `forge`, and `piece_cauldron`. Passing `null` or an empty string makes the recipe craftable without a station.
 - Include an item icon in the `ItemDrop` shared data, pass a direct `Sprite`, or call `.Icon("SpriteAssetName")` for craftable items.
+- Upgrade-only recipe requirements are valid. Use `.Requires("Bronze", 0, 4)` when an ingredient should only be consumed by upgrades.
+- Self-contained mods can embed an AssetBundle in the DLL and call `.FromEmbeddedResource("Namespace.BundleName", typeof(MyPlugin).Assembly, "PrefabName")`.
 - Keep prefab names stable once released. Renaming a registered item prefab can affect existing saves and inventories.
 
 ## Bugs, Support, Contributions

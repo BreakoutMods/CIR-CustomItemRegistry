@@ -1,4 +1,6 @@
 using System;
+using System.Reflection;
+using Jotunn.Utils;
 using UnityEngine;
 
 namespace ValheimCustomItemRegistry
@@ -18,6 +20,23 @@ namespace ValheimCustomItemRegistry
         public CustomItemBuilder FromBundle(string assetBundlePath, string prefabName)
         {
             definition.AssetBundlePath = assetBundlePath;
+            definition.AssetBundle = null;
+            definition.PrefabName = prefabName;
+            return this;
+        }
+
+        public CustomItemBuilder FromAssetBundle(AssetBundle assetBundle, string prefabName)
+        {
+            definition.AssetBundle = assetBundle;
+            definition.AssetBundlePath = null;
+            definition.PrefabName = prefabName;
+            return this;
+        }
+
+        public CustomItemBuilder FromEmbeddedResource(string resourceName, Assembly assembly, string prefabName)
+        {
+            definition.AssetBundle = AssetUtils.LoadAssetBundleFromResources(resourceName, assembly);
+            definition.AssetBundlePath = resourceName;
             definition.PrefabName = prefabName;
             return this;
         }

@@ -62,7 +62,7 @@ namespace ValheimCustomItemRegistry
             {
                 ValidateDefinition(definition);
 
-                AssetBundle assetBundle = LoadAssetBundle(definition.AssetBundlePath);
+                AssetBundle assetBundle = GetAssetBundle(definition);
                 GameObject sourcePrefab = assetBundle.LoadAsset<GameObject>(definition.PrefabName);
                 if (!sourcePrefab)
                 {
@@ -204,7 +204,7 @@ namespace ValheimCustomItemRegistry
                 throw new CustomItemRegistrationException(definition, "Item name is required");
             }
 
-            if (string.IsNullOrWhiteSpace(definition.AssetBundlePath))
+            if (!definition.AssetBundle && string.IsNullOrWhiteSpace(definition.AssetBundlePath))
             {
                 throw new CustomItemRegistrationException(definition, "AssetBundle path is required");
             }
@@ -258,14 +258,19 @@ namespace ValheimCustomItemRegistry
                     throw new CustomItemRegistrationException(definition, "Recipe contains an ingredient with an empty item name");
                 }
 
-                if (ingredient.amount <= 0)
+                if (ingredient.amount < 0)
                 {
-                    throw new CustomItemRegistrationException(definition, $"Recipe ingredient '{ingredient.itemName}' amount must be greater than zero");
+                    throw new CustomItemRegistrationException(definition, $"Recipe ingredient '{ingredient.itemName}' amount cannot be negative");
                 }
 
                 if (ingredient.amountPerLevel < 0)
                 {
                     throw new CustomItemRegistrationException(definition, $"Recipe ingredient '{ingredient.itemName}' amount per level cannot be negative");
+                }
+
+                if (ingredient.amount == 0 && ingredient.amountPerLevel == 0)
+                {
+                    throw new CustomItemRegistrationException(definition, $"Recipe ingredient '{ingredient.itemName}' must have a craft amount or upgrade amount per level");
                 }
             }
         }
@@ -315,6 +320,16 @@ namespace ValheimCustomItemRegistry
             LoadedAssetBundles[resolvedPath] = assetBundle;
             LogInfo($"Loaded AssetBundle '{resolvedPath}'");
             return assetBundle;
+        }
+
+        private static AssetBundle GetAssetBundle(CustomItemDefinition definition)
+        {
+            if (definition.AssetBundle)
+            {
+                return definition.AssetBundle;
+            }
+
+            return LoadAssetBundle(definition.AssetBundlePath);
         }
 
         private static string ResolveAssetBundlePath(string assetBundlePath)
@@ -403,7 +418,8 @@ namespace ValheimCustomItemRegistry
                     .Select(ingredient => new RequirementConfig(
                         ingredient.itemName,
                         ingredient.amount,
-                        ingredient.amountPerLevel))
+                        ingredient.amountPerLevel,
+                        ingredient.recover))
                     .ToArray()
             };
 

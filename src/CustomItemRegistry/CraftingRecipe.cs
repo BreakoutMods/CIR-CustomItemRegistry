@@ -10,12 +10,14 @@ namespace ValheimCustomItemRegistry
         public string itemName;
         public int amount;
         public int amountPerLevel;
+        public bool recover;
 
-        public Ingredient(string itemName, int amount, int amountPerLevel = 0)
+        public Ingredient(string itemName, int amount, int amountPerLevel = 0, bool recover = true)
         {
             this.itemName = itemName;
             this.amount = amount;
             this.amountPerLevel = amountPerLevel;
+            this.recover = recover;
         }
     }
 

@@ -42,7 +42,8 @@ namespace ExampleCustomItemPlugin
                         .Amount(1)
                         .Requires("Wood", 2)
                         .Requires("Iron", 12)
-                        .Requires("LeatherScraps", 2))
+                        .Requires("LeatherScraps", 2)
+                        .Requires("Bronze", 0, 4))
                     .Gear(gear => gear
                         .OneHandedWeapon()
                         .Weight(1.8f)
@@ -55,6 +56,11 @@ namespace ExampleCustomItemPlugin
                         .BlockPower(20f)
                         .BlockPowerPerLevel(5f)
                         .BlockForce(15f)
+                        .Parry(2f)
+                        .AttackForce(30f)
+                        .PrimaryAttackStamina(12f)
+                        .PrimaryAttackForceMultiplier(1f)
+                        .DamageModifier(HitData.DamageType.Slash, HitData.DamageModifier.Normal)
                         .MovementModifier(-0.05f))
                     .ConfigureSharedData(shared => shared.m_value = 120)
                     .Register();

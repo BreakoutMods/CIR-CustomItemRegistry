@@ -14,14 +14,22 @@ namespace ValheimCustomItemRegistry
 
         public GearBuilder OneHandedWeapon() => Type(ItemDrop.ItemData.ItemType.OneHandedWeapon);
         public GearBuilder TwoHandedWeapon() => Type(ItemDrop.ItemData.ItemType.TwoHandedWeapon);
+        public GearBuilder TwoHandedWeaponLeft() => Type(ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft);
         public GearBuilder Shield() => Type(ItemDrop.ItemData.ItemType.Shield);
         public GearBuilder Bow() => Type(ItemDrop.ItemData.ItemType.Bow);
+        public GearBuilder Ammo() => Type(ItemDrop.ItemData.ItemType.Ammo);
+        public GearBuilder AmmoNonEquipable() => Type(ItemDrop.ItemData.ItemType.AmmoNonEquipable);
+        public GearBuilder Material() => Type(ItemDrop.ItemData.ItemType.Material);
+        public GearBuilder Consumable() => Type(ItemDrop.ItemData.ItemType.Consumable);
+        public GearBuilder Torch() => Type(ItemDrop.ItemData.ItemType.Torch);
         public GearBuilder Tool() => Type(ItemDrop.ItemData.ItemType.Tool);
         public GearBuilder Armor() => Type(ItemDrop.ItemData.ItemType.Chest);
         public GearBuilder Helmet() => Type(ItemDrop.ItemData.ItemType.Helmet);
         public GearBuilder Chest() => Type(ItemDrop.ItemData.ItemType.Chest);
         public GearBuilder Legs() => Type(ItemDrop.ItemData.ItemType.Legs);
+        public GearBuilder Shoulder() => Type(ItemDrop.ItemData.ItemType.Shoulder);
         public GearBuilder Utility() => Type(ItemDrop.ItemData.ItemType.Utility);
+        public GearBuilder Trinket() => Type(ItemDrop.ItemData.ItemType.Trinket);
 
         public GearBuilder Type(ItemDrop.ItemData.ItemType itemType)
         {
@@ -101,6 +109,18 @@ namespace ValheimCustomItemRegistry
             return this;
         }
 
+        public GearBuilder Parry(float value)
+        {
+            definition.SharedDataConfigurators.Add(shared => shared.m_timedBlockBonus = value);
+            return this;
+        }
+
+        public GearBuilder AttackForce(float value)
+        {
+            definition.SharedDataConfigurators.Add(shared => shared.m_attackForce = value);
+            return this;
+        }
+
         public GearBuilder MovementModifier(float value)
         {
             definition.MovementModifier = value;
@@ -141,6 +161,46 @@ namespace ValheimCustomItemRegistry
         public GearBuilder ChopDamagePerLevel(float value) => DamagePerLevel(d => { d.m_chop = value; return d; });
         public GearBuilder PickaxeDamagePerLevel(float value) => DamagePerLevel(d => { d.m_pickaxe = value; return d; });
 
+        public GearBuilder DamageModifier(HitData.DamageType damageType, HitData.DamageModifier modifier)
+        {
+            definition.SharedDataConfigurators.Add(shared =>
+            {
+                if (shared.m_damageModifiers == null)
+                {
+                    shared.m_damageModifiers = new System.Collections.Generic.List<HitData.DamageModPair>();
+                }
+
+                shared.m_damageModifiers.RemoveAll(entry => entry.m_type == damageType);
+                shared.m_damageModifiers.Add(new HitData.DamageModPair
+                {
+                    m_type = damageType,
+                    m_modifier = modifier
+                });
+            });
+            return this;
+        }
+
+        public GearBuilder PrimaryAttackStamina(float value) => PrimaryAttack(attack => attack.m_attackStamina = value);
+        public GearBuilder PrimaryAttackEitr(float value) => PrimaryAttack(attack => attack.m_attackEitr = value);
+        public GearBuilder PrimaryAttackHealth(float value) => PrimaryAttack(attack => attack.m_attackHealth = value);
+        public GearBuilder PrimaryAttackHealthPercentage(float value) => PrimaryAttack(attack => attack.m_attackHealthPercentage = value);
+        public GearBuilder PrimaryAttackHealthReturnHit(float value) => PrimaryAttack(attack => attack.m_attackHealthReturnHit = value);
+        public GearBuilder PrimaryAttackDamageMultiplierPerMissingHp(float value) => PrimaryAttack(attack => attack.m_damageMultiplierPerMissingHP = value);
+        public GearBuilder PrimaryAttackForceMultiplier(float value) => PrimaryAttack(attack => attack.m_forceMultiplier = value);
+        public GearBuilder PrimaryAttackProjectileCount(int value) => PrimaryAttack(attack => attack.m_projectiles = value);
+        public GearBuilder ProjectileVelocity(float value) => PrimaryAttack(attack => attack.m_projectileVel = value);
+        public GearBuilder ProjectileAccuracy(float value) => PrimaryAttack(attack => attack.m_projectileAccuracy = value);
+        public GearBuilder DrawDuration(float value) => PrimaryAttack(attack => attack.m_drawDurationMin = value);
+        public GearBuilder DrawStaminaDrain(float value) => PrimaryAttack(attack => attack.m_drawStaminaDrain = value);
+        public GearBuilder ReloadTime(float value) => PrimaryAttack(attack => attack.m_reloadTime = value);
+        public GearBuilder ReloadStaminaDrain(float value) => PrimaryAttack(attack => attack.m_reloadStaminaDrain = value);
+
+        public GearBuilder SecondaryAttackStamina(float value) => SecondaryAttack(attack => attack.m_attackStamina = value);
+        public GearBuilder SecondaryAttackEitr(float value) => SecondaryAttack(attack => attack.m_attackEitr = value);
+        public GearBuilder SecondaryAttackHealth(float value) => SecondaryAttack(attack => attack.m_attackHealth = value);
+        public GearBuilder SecondaryAttackHealthPercentage(float value) => SecondaryAttack(attack => attack.m_attackHealthPercentage = value);
+        public GearBuilder SecondaryAttackForceMultiplier(float value) => SecondaryAttack(attack => attack.m_forceMultiplier = value);
+
         private GearBuilder Damage(System.Func<HitData.DamageTypes, HitData.DamageTypes> configure)
         {
             definition.Damages = configure(definition.Damages);
@@ -153,6 +213,28 @@ namespace ValheimCustomItemRegistry
             definition.DamagesPerLevel = configure(definition.DamagesPerLevel);
             definition.HasDamagesPerLevel = true;
             return this;
+        }
+
+        private GearBuilder PrimaryAttack(System.Action<Attack> configure)
+        {
+            definition.SharedDataConfigurators.Add(shared => ConfigureAttack(shared.m_attack, "primary", shared.m_name, configure));
+            return this;
+        }
+
+        private GearBuilder SecondaryAttack(System.Action<Attack> configure)
+        {
+            definition.SharedDataConfigurators.Add(shared => ConfigureAttack(shared.m_secondaryAttack, "secondary", shared.m_name, configure));
+            return this;
+        }
+
+        private static void ConfigureAttack(Attack attack, string label, string itemName, System.Action<Attack> configure)
+        {
+            if (attack == null)
+            {
+                throw new CustomItemRegistrationException($"Item '{itemName}' has no {label} attack to configure");
+            }
+
+            configure(attack);
         }
     }
 }
