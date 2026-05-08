@@ -6,7 +6,7 @@ CIR, short for Custom Item Registry, is a Valheim modding API for developers who
 
 Repository: [BreakoutMods/CIR-CustomItemRegistry](https://github.com/BreakoutMods/CIR-CustomItemRegistry)
 
-The library is built for BepInEx 5.x, Harmony, and Jotunn. It leans on Jotunn's `PrefabManager` and `ItemManager` for multiplayer-safe prefab and recipe registration, while exposing both the original small API and a CIR 0.2 builder API.
+The library is built for BepInEx 5.x, Harmony, and Jotunn. It leans on Jotunn's `PrefabManager` and `ItemManager` for multiplayer-safe prefab and recipe registration, while exposing the original small API, the CIR 0.2 raw builder API, and CIR 0.3 typed item templates.
 
 ## Usage
 
@@ -17,34 +17,37 @@ Reference `CustomItemRegistry.dll` from your mod project and add BepInEx depende
 [BepInDependency(Jotunn.Main.ModGuid)]
 ```
 
-Register a modern item from `Awake`:
+Register a templated item from `Awake`:
 
 ```csharp
-CustomItemRegistry.Item("BreakoutSword")
-    .FromBundle(assetBundlePath, "BreakoutSwordPrefab")
-    .DisplayName("$item_breakoutsword")
-    .Description("$item_breakoutsword_desc")
-    .Icon("BreakoutSwordIcon")
+CustomItemRegistry.Item("BM_IronLongsword")
+    .FromEmbeddedResource("MyMod.Assets.items", typeof(MyPlugin).Assembly, "BM_IronLongsword")
+    .DisplayName("$item_bm_ironlongsword")
+    .Description("$item_bm_ironlongsword_desc")
+    .Icon("BM_IronLongswordIcon")
+    .AsSword(sword => sword
+        .Slash(48f, perLevel: 6f)
+        .Block(24f, force: 18f, parry: 2f)
+        .Durability(250f, perLevel: 50f)
+        .Attack(stamina: 14f, force: 35f)
+        .Movement(-0.05f))
     .Recipe(recipe => recipe
         .At("forge")
-        .RepairAt("forge")
         .StationLevel(2)
-        .Amount(1)
         .Requires("FineWood", 4)
         .Requires("Iron", 10)
-        .Requires("Bronze", 0, 4))
-    .Gear(gear => gear
-        .OneHandedWeapon()
-        .Weight(2f)
-        .StackSize(1)
-        .Durability(200f)
-        .MaxQuality(4)
-        .SlashDamage(35f)
-        .BlockPower(20f)
-        .Parry(2f)
-        .AttackForce(30f)
-        .PrimaryAttackStamina(12f)
-        .MovementModifier(-0.05f))
+        .Requires("Iron", 0, 8))
+    .Register();
+```
+
+You can still use the raw 0.2 builder when you need direct shared-data control:
+
+```csharp
+CustomItemRegistry.Item("BreakoutMaterial")
+    .FromBundle(assetBundlePath, "BreakoutMaterialPrefab")
+    .Icon("BreakoutMaterialIcon")
+    .Gear(gear => gear.Material().StackSize(50))
+    .ConfigureSharedData(shared => shared.m_value = 25)
     .Register();
 ```
 
@@ -76,8 +79,17 @@ The AssetBundle prefab must include an `ItemDrop` component. If it does not alre
 - `RegisterItem(string itemName, string assetBundlePath, string prefabName, CraftingRecipe recipe)` legacy API.
 - `RegisterItem(CustomItemDefinition definition)`, `TryRegisterItem(...)`, and `RegisterItems(...)`.
 - `CustomItemBuilder`, `RecipeBuilder`, `GearBuilder`, `CustomItemDefinition`, `ItemRegistrationResult`, and `CustomItemRegistrationException`.
+- CIR 0.3 template builders: `WeaponTemplateBuilder`, `ShieldTemplateBuilder`, `ArmorTemplateBuilder`, `BowTemplateBuilder`, `AmmoTemplateBuilder`, `ToolTemplateBuilder`, `FoodTemplateBuilder`, and `MaterialTemplateBuilder`.
 - `CraftingRecipe` with ingredients, crafting station, repair station, station level, amount, enabled flag, require-only-one ingredient, and quality result multiplier.
 - AssetBundles can be loaded from file paths, passed as preloaded `AssetBundle` instances, or loaded from embedded resources with `.FromEmbeddedResource(...)`.
+
+#### Item Templates
+
+- `.AsSword(...)`, `.AsAxe(...)`, `.AsMace(...)`, `.AsSpear(...)`, `.AsKnife(...)`, and `.AsAtgeir(...)` for melee weapons.
+- `.AsBow(...)` and `.AsArrow(...)` for ranged weapons and ammo.
+- `.AsShield(...)`, `.AsArmorChest(...)`, `.AsArmorLegs(...)`, `.AsHelmet(...)`, and `.AsCape(...)` for defense items.
+- `.AsTool(...)`, `.AsFood(...)`, and `.AsMaterial(...)` for common non-weapon items.
+- Template-aware validation catches missing weapon damage, shield block power, armor value, and food stats before asset loading.
 
 #### Item Metadata
 
@@ -97,10 +109,33 @@ The AssetBundle prefab must include an `ItemDrop` component. If it does not alre
 - Registers items and recipes through Jotunn's `ItemManager`.
 - Includes Harmony timing patches on `ObjectDB.CopyOtherDB` and `ZNetScene.Awake` to flush items into live databases when Valheim creates or copies them.
 - Validates missing bundle paths, missing prefab assets, missing `ItemDrop`, duplicate item names, invalid recipes, and missing craftable item icons with clearer log messages.
+- Validates template-specific required fields with the template name in the error message.
 
 #### Developer Example
 
-The `src/ExampleCustomItemPlugin` project shows builder, definition, try-register, and legacy API usage. Its sample AssetBundle and prefab names are placeholders, so replace them with real assets before shipping.
+The `src/ExampleCustomItemPlugin` project shows template, raw builder, definition, try-register, validation harness, and legacy API usage. Its sample AssetBundle and prefab names are placeholders, so replace them with real assets before shipping.
+
+## Project Layout
+
+```text
+CIR-CustomItemRegistry/
+  CIR-CustomItemRegistry.sln
+  build.ps1
+  docs/
+    templates.md
+  src/
+    CustomItemRegistry/
+      API/          Public API contracts and registration facade
+      Builders/     Fluent item, recipe, and gear builders
+      Templates/    Typed Valheim item template builders
+      Patches/      Harmony timing patches
+      Plugin/       BepInEx plugin entrypoint
+    ExampleCustomItemPlugin/
+      Examples/     Developer-facing usage examples
+      Testing/      Lightweight compile/validation harnesses
+```
+
+The public namespace and assembly identity stay stable even though the source files are grouped by responsibility.
 
 ## Installation
 
@@ -139,6 +174,7 @@ Debug builds copy the API DLL into `BepInEx/plugins/CustomItemRegistry` and the 
 - Include an item icon in the `ItemDrop` shared data, pass a direct `Sprite`, or call `.Icon("SpriteAssetName")` for craftable items.
 - Upgrade-only recipe requirements are valid. Use `.Requires("Bronze", 0, 4)` when an ingredient should only be consumed by upgrades.
 - Self-contained mods can embed an AssetBundle in the DLL and call `.FromEmbeddedResource("Namespace.BundleName", typeof(MyPlugin).Assembly, "PrefabName")`.
+- Use templates for normal items first. Drop to `.Gear(...)` or `.ConfigureSharedData(...)` only for unusual behavior.
 - Keep prefab names stable once released. Renaming a registered item prefab can affect existing saves and inventories.
 
 ## Bugs, Support, Contributions

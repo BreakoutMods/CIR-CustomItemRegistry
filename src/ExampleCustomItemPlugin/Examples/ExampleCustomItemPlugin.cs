@@ -13,7 +13,7 @@ namespace ExampleCustomItemPlugin
     {
         public const string PluginGuid = "com.valheimcustomitemregistry.example";
         public const string PluginName = "Example Custom Item Plugin";
-        public const string PluginVersion = "0.2.0";
+        public const string PluginVersion = "0.3.0";
 
         private void Awake()
         {
@@ -24,6 +24,7 @@ namespace ExampleCustomItemPlugin
             RegisterDefinitionExample(assetBundlePath);
             RegisterTryExample(assetBundlePath);
             RegisterLegacyExample(assetBundlePath);
+            CompileTemplateExamples(assetBundlePath);
         }
 
         private void RegisterBuilderExample(string assetBundlePath)
@@ -136,6 +137,31 @@ namespace ExampleCustomItemPlugin
                         repairStation: "piece_workbench",
                         minStationLevel: 1));
             });
+        }
+
+        private void CompileTemplateExamples(string assetBundlePath)
+        {
+            CustomItemDefinition[] definitions =
+            {
+                CustomItemRegistry.Item("ExampleTemplateSword").FromBundle(assetBundlePath, "ExampleTemplateSwordPrefab").AsSword(item => item.Slash(30f, 5f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateAxe").FromBundle(assetBundlePath, "ExampleTemplateAxePrefab").AsAxe(item => item.Slash(20f).Chop(40f).ToolTier(2)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateMace").FromBundle(assetBundlePath, "ExampleTemplateMacePrefab").AsMace(item => item.Blunt(35f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateSpear").FromBundle(assetBundlePath, "ExampleTemplateSpearPrefab").AsSpear(item => item.Pierce(32f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateKnife").FromBundle(assetBundlePath, "ExampleTemplateKnifePrefab").AsKnife(item => item.Slash(18f).Pierce(18f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateAtgeir").FromBundle(assetBundlePath, "ExampleTemplateAtgeirPrefab").AsAtgeir(item => item.Pierce(45f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateBow").FromBundle(assetBundlePath, "ExampleTemplateBowPrefab").AsBow(item => item.Pierce(30f).Attack(12f).Projectile(55f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateArrow").FromBundle(assetBundlePath, "ExampleTemplateArrowPrefab").AsArrow(item => item.Pierce(25f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateShield").FromBundle(assetBundlePath, "ExampleTemplateShieldPrefab").AsShield(item => item.Block(35f, 25f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateChest").FromBundle(assetBundlePath, "ExampleTemplateChestPrefab").AsArmorChest(item => item.Armor(16f, 2f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateLegs").FromBundle(assetBundlePath, "ExampleTemplateLegsPrefab").AsArmorLegs(item => item.Armor(14f, 2f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateHelmet").FromBundle(assetBundlePath, "ExampleTemplateHelmetPrefab").AsHelmet(item => item.Armor(12f, 2f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateCape").FromBundle(assetBundlePath, "ExampleTemplateCapePrefab").AsCape(item => item.Armor(2f).Movement(0.02f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateTool").FromBundle(assetBundlePath, "ExampleTemplateToolPrefab").AsTool(item => item.Pickaxe(30f).ToolTier(2)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateFood").FromBundle(assetBundlePath, "ExampleTemplateFoodPrefab").AsFood(item => item.Stats(35f, 20f).Duration(1200f).Regen(2f)).Build(),
+                CustomItemRegistry.Item("ExampleTemplateMaterial").FromBundle(assetBundlePath, "ExampleTemplateMaterialPrefab").AsMaterial(item => item.StackSize(50).Value(10)).Build()
+            };
+
+            Logger.LogDebug($"Compiled {definitions.Length} CIR template example definitions.");
         }
 
         private void TryExample(string exampleName, Action register)

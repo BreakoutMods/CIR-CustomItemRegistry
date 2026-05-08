@@ -44,6 +44,13 @@ namespace ValheimCustomItemRegistry
 
         public IList<Action<ItemDrop.ItemData.SharedData>> SharedDataConfigurators { get; private set; }
 
+        internal string TemplateName { get; set; }
+        internal bool TemplateRequiresDamage { get; set; }
+        internal bool TemplateRequiresBlockPower { get; set; }
+        internal bool TemplateRequiresArmor { get; set; }
+        internal bool TemplateRequiresFoodStats { get; set; }
+        internal bool TemplateHasFoodStats { get; set; }
+
         public CustomItemDefinition()
         {
             SharedDataConfigurators = new List<Action<ItemDrop.ItemData.SharedData>>();

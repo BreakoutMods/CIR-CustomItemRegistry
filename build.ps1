@@ -15,5 +15,4 @@ if (-not $dotnet) {
     throw "dotnet SDK was not found. Install the .NET SDK or add dotnet.exe to PATH."
 }
 
-& $dotnet build (Join-Path $root "src\CustomItemRegistry\CustomItemRegistry.csproj") -c $Configuration
-& $dotnet build (Join-Path $root "src\ExampleCustomItemPlugin\ExampleCustomItemPlugin.csproj") -c $Configuration
+& $dotnet build (Join-Path $root "CIR-CustomItemRegistry.sln") -c $Configuration

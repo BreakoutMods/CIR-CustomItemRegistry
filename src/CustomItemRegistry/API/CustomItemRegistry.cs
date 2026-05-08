@@ -296,6 +296,52 @@ namespace ValheimCustomItemRegistry
             {
                 throw new CustomItemRegistrationException(definition, "Max quality must be greater than zero");
             }
+
+            ValidateTemplate(definition);
+        }
+
+        private static void ValidateTemplate(CustomItemDefinition definition)
+        {
+            if (string.IsNullOrEmpty(definition.TemplateName))
+            {
+                return;
+            }
+
+            string templatePrefix = $"Template '{definition.TemplateName}'";
+            if (definition.TemplateRequiresDamage && !HasAnyDamage(definition.Damages) && !HasAnyDamage(definition.DamagesPerLevel))
+            {
+                throw new CustomItemRegistrationException(definition, $"{templatePrefix} requires at least one damage value");
+            }
+
+            if (definition.TemplateRequiresBlockPower && (!definition.BlockPower.HasValue || definition.BlockPower.Value <= 0f))
+            {
+                throw new CustomItemRegistrationException(definition, $"{templatePrefix} requires block power");
+            }
+
+            if (definition.TemplateRequiresArmor && (!definition.Armor.HasValue || definition.Armor.Value <= 0f))
+            {
+                throw new CustomItemRegistrationException(definition, $"{templatePrefix} requires armor value");
+            }
+
+            if (definition.TemplateRequiresFoodStats && !definition.TemplateHasFoodStats)
+            {
+                throw new CustomItemRegistrationException(definition, $"{templatePrefix} requires health, stamina, or eitr food stats");
+            }
+        }
+
+        private static bool HasAnyDamage(HitData.DamageTypes damages)
+        {
+            return damages.m_damage > 0f
+                || damages.m_blunt > 0f
+                || damages.m_slash > 0f
+                || damages.m_pierce > 0f
+                || damages.m_chop > 0f
+                || damages.m_pickaxe > 0f
+                || damages.m_fire > 0f
+                || damages.m_frost > 0f
+                || damages.m_lightning > 0f
+                || damages.m_poison > 0f
+                || damages.m_spirit > 0f;
         }
 
         private static AssetBundle LoadAssetBundle(string assetBundlePath)

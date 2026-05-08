@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Added typed item templates for common Valheim item types.
+- Added weapon, shield, armor, bow, ammo, tool, food, and material template builders.
+- Added template-aware validation for missing weapon damage, shield block power, armor value, and food stats.
+- Updated the example plugin to compile-test every template entrypoint.
+- Added a template validation harness for core failure/default scenarios.
+- Added template documentation.
+
 ## 0.2.1
 
 - Added preloaded and embedded AssetBundle builder sources inspired by production item-pack mods.

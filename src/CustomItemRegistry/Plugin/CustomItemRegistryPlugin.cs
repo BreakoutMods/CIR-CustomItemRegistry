@@ -10,7 +10,7 @@ namespace ValheimCustomItemRegistry
     {
         public const string PluginGuid = "com.valheimcustomitemregistry.api";
         public const string PluginName = "Custom Item Registry";
-        public const string PluginVersion = "0.2.1";
+        public const string PluginVersion = "0.3.0";
 
         internal static ManualLogSource Log { get; private set; }
 

@@ -2,7 +2,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomItemRegistry", "CustomItemRegistry.csproj", "{4F00AECF-96DC-6200-B5B8-B7DE60A14F9C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomItemRegistry", "src\CustomItemRegistry\CustomItemRegistry.csproj", "{4F00AECF-96DC-6200-B5B8-B7DE60A14F9C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleCustomItemPlugin", "src\ExampleCustomItemPlugin\ExampleCustomItemPlugin.csproj", "{8D470E35-7333-4D52-969C-2BB9A9081FA8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,6 +16,10 @@ Global
 		{4F00AECF-96DC-6200-B5B8-B7DE60A14F9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4F00AECF-96DC-6200-B5B8-B7DE60A14F9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4F00AECF-96DC-6200-B5B8-B7DE60A14F9C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D470E35-7333-4D52-969C-2BB9A9081FA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D470E35-7333-4D52-969C-2BB9A9081FA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D470E35-7333-4D52-969C-2BB9A9081FA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D470E35-7333-4D52-969C-2BB9A9081FA8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
