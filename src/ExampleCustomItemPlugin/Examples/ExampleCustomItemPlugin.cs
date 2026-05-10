@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using BepInEx;
 using ValheimCustomItemRegistry;
+using static ValheimCustomItemRegistry.ItemRefs;
+using CIRCraftingStation = ValheimCustomItemRegistry.CraftingStation;
 
 namespace ExampleCustomItemPlugin
 {
@@ -13,7 +15,7 @@ namespace ExampleCustomItemPlugin
     {
         public const string PluginGuid = "com.valheimcustomitemregistry.example";
         public const string PluginName = "Example Custom Item Plugin";
-        public const string PluginVersion = "0.3.0";
+        public const string PluginVersion = "0.4.0";
 
         private void Awake()
         {
@@ -25,6 +27,7 @@ namespace ExampleCustomItemPlugin
             RegisterTryExample(assetBundlePath);
             RegisterLegacyExample(assetBundlePath);
             CompileTemplateExamples(assetBundlePath);
+            CompileRecipeHelperExamples(assetBundlePath);
         }
 
         private void RegisterBuilderExample(string assetBundlePath)
@@ -37,14 +40,14 @@ namespace ExampleCustomItemPlugin
                     .Description("$item_exampleironsword_desc")
                     .Icon("ExampleIronSwordIcon")
                     .Recipe(recipe => recipe
-                        .At("forge")
-                        .RepairAt("forge")
+                        .At(CIRCraftingStation.Forge)
+                        .RepairAt(CIRCraftingStation.Forge)
                         .StationLevel(2)
                         .Amount(1)
-                        .Requires("Wood", 2)
-                        .Requires("Iron", 12)
-                        .Requires("LeatherScraps", 2)
-                        .Requires("Bronze", 0, 4))
+                        .Requires(VanillaItem.Wood, 2)
+                        .Requires(VanillaItem.Iron, 12)
+                        .Requires(VanillaItem.LeatherScraps, 2)
+                        .Requires(VanillaItem.Bronze, 0, 4))
                     .Gear(gear => gear
                         .OneHandedWeapon()
                         .Weight(1.8f)
@@ -78,10 +81,10 @@ namespace ExampleCustomItemPlugin
                     .Description("$item_examplebronzeshield_desc")
                     .Icon("ExampleBronzeShieldIcon")
                     .Recipe(recipe => recipe
-                        .At("forge")
+                        .At(CIRCraftingStation.Forge)
                         .StationLevel(1)
-                        .Requires("Bronze", 8)
-                        .Requires("Wood", 4))
+                        .Requires(VanillaItem.Bronze, 8)
+                        .Requires(VanillaItem.Wood, 4))
                     .Gear(gear => gear
                         .Shield()
                         .Weight(3f)
@@ -162,6 +165,31 @@ namespace ExampleCustomItemPlugin
             };
 
             Logger.LogDebug($"Compiled {definitions.Length} CIR template example definitions.");
+        }
+
+        private void CompileRecipeHelperExamples(string assetBundlePath)
+        {
+            CustomItemDefinition vanillaOnly = CustomItemRegistry.Item("ExampleHelperBronzeSword")
+                .FromBundle(assetBundlePath, "ExampleHelperBronzeSwordPrefab")
+                .AsSword(sword => sword.Slash(35f).Block(18f))
+                .Recipe(recipe => recipe
+                    .At(CIRCraftingStation.Forge)
+                    .RepairAt(CIRCraftingStation.Forge)
+                    .Requires(VanillaItem.Bronze, 8)
+                    .Requires(VanillaItem.FineWood, 4)
+                    .Requires(ItemRef.Prefab("LeatherScraps"), 2))
+                .Build();
+
+            CustomItemDefinition thirdPartyIngredient = CustomItemRegistry.Item("ExampleHelperMagicBlade")
+                .FromBundle(assetBundlePath, "ExampleHelperMagicBladePrefab")
+                .AsSword(sword => sword.Slash(40f).Spirit(10f))
+                .Recipe(recipe => recipe
+                    .At(CIRCraftingStation.Forge)
+                    .Requires(VanillaItem.Silver, 10)
+                    .Requires(Modded("com.otherauthor.valheim.magicmod", "MagicCore"), 1))
+                .Build();
+
+            Logger.LogDebug($"Compiled CIR recipe helper examples for '{vanillaOnly.ItemName}' and '{thirdPartyIngredient.ItemName}'.");
         }
 
         private void TryExample(string exampleName, Action register)

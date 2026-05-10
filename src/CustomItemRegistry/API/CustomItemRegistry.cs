@@ -231,6 +231,16 @@ namespace ValheimCustomItemRegistry
             }
 
             CraftingRecipe recipe = definition.Recipe;
+            if (!string.IsNullOrEmpty(recipe.CraftingStationValidationError))
+            {
+                throw new CustomItemRegistrationException(definition, recipe.CraftingStationValidationError);
+            }
+
+            if (!string.IsNullOrEmpty(recipe.RepairStationValidationError))
+            {
+                throw new CustomItemRegistrationException(definition, recipe.RepairStationValidationError);
+            }
+
             if (recipe.amount <= 0)
             {
                 throw new CustomItemRegistrationException(definition, "Recipe amount must be greater than zero");
@@ -253,6 +263,11 @@ namespace ValheimCustomItemRegistry
 
             foreach (Ingredient ingredient in recipe.ingredients)
             {
+                if (!string.IsNullOrEmpty(ingredient.HelperValidationError))
+                {
+                    throw new CustomItemRegistrationException(definition, ingredient.HelperValidationError);
+                }
+
                 if (string.IsNullOrWhiteSpace(ingredient.itemName))
                 {
                     throw new CustomItemRegistrationException(definition, "Recipe contains an ingredient with an empty item name");
@@ -563,7 +578,14 @@ namespace ValheimCustomItemRegistry
             {
                 if (!PrefabManager.Instance.GetPrefab(ingredient.itemName))
                 {
-                    LogWarning($"Item '{definition.ItemName}' recipe ingredient '{ingredient.itemName}' was not found in loaded prefab databases. Jotunn may still resolve it later if another mod registers it.");
+                    if (!string.IsNullOrWhiteSpace(ingredient.SourceModGuid))
+                    {
+                        LogWarning($"Item '{definition.ItemName}' recipe ingredient '{ingredient.itemName}' from mod '{ingredient.SourceModGuid}' was not found in loaded prefab databases (amount {ingredient.amount}, amount per level {ingredient.amountPerLevel}). Jotunn may still resolve it later if that mod registers it.");
+                    }
+                    else
+                    {
+                        LogWarning($"Item '{definition.ItemName}' recipe ingredient '{ingredient.itemName}' was not found in loaded prefab databases. Jotunn may still resolve it later if another mod registers it.");
+                    }
                 }
             }
         }

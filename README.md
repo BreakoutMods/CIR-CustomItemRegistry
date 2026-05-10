@@ -6,7 +6,11 @@ CIR, short for Custom Item Registry, is a Valheim modding API for developers who
 
 Repository: [BreakoutMods/CIR-CustomItemRegistry](https://github.com/BreakoutMods/CIR-CustomItemRegistry)
 
-The library is built for BepInEx 5.x, Harmony, and Jotunn. It leans on Jotunn's `PrefabManager` and `ItemManager` for multiplayer-safe prefab and recipe registration, while exposing the original small API, the CIR 0.2 raw builder API, and CIR 0.3 typed item templates.
+Community: [BreakoutMods Discord](https://discord.gg/ArmCF3nscW)
+
+Support development: [BreakoutMods Patreon](https://www.patreon.com/breakoutmods)
+
+The library is built for BepInEx 5.x, Harmony, and Jotunn. It leans on Jotunn's `PrefabManager` and `ItemManager` for multiplayer-safe prefab and recipe registration, while exposing the original small API, the CIR 0.2 raw builder API, CIR 0.3 typed item templates, and CIR 0.4 typed recipe helpers.
 
 ## Usage
 
@@ -15,6 +19,12 @@ Reference `CustomItemRegistry.dll` from your mod project and add BepInEx depende
 ```csharp
 [BepInDependency(CustomItemRegistryPlugin.PluginGuid)]
 [BepInDependency(Jotunn.Main.ModGuid)]
+```
+
+Valheim also has a game type named `CraftingStation`. If your project references Valheim assemblies, add an alias for CIR's enum:
+
+```csharp
+using CIRCraftingStation = ValheimCustomItemRegistry.CraftingStation;
 ```
 
 Register a templated item from `Awake`:
@@ -32,11 +42,26 @@ CustomItemRegistry.Item("BM_IronLongsword")
         .Attack(stamina: 14f, force: 35f)
         .Movement(-0.05f))
     .Recipe(recipe => recipe
-        .At("forge")
+        .At(CIRCraftingStation.Forge)
         .StationLevel(2)
-        .Requires("FineWood", 4)
-        .Requires("Iron", 10)
-        .Requires("Iron", 0, 8))
+        .Requires(VanillaItem.FineWood, 4)
+        .Requires(VanillaItem.Iron, 10)
+        .Requires(VanillaItem.Iron, 0, 8))
+    .Register();
+```
+
+Typed helpers remove most recipe string memorization, but raw prefab strings remain supported:
+
+```csharp
+using static ValheimCustomItemRegistry.ItemRefs;
+
+CustomItemRegistry.Item("BM_MagicBlade")
+    .FromBundle(assetBundlePath, "BM_MagicBladePrefab")
+        .AsSword(sword => sword.Slash(40f).Spirit(10f))
+    .Recipe(recipe => recipe
+        .At(CIRCraftingStation.Forge)
+        .Requires(VanillaItem.Silver, 10)
+        .Requires(Modded("com.otherauthor.valheim.magicmod", "MagicCore"), 1))
     .Register();
 ```
 
@@ -80,8 +105,16 @@ The AssetBundle prefab must include an `ItemDrop` component. If it does not alre
 - `RegisterItem(CustomItemDefinition definition)`, `TryRegisterItem(...)`, and `RegisterItems(...)`.
 - `CustomItemBuilder`, `RecipeBuilder`, `GearBuilder`, `CustomItemDefinition`, `ItemRegistrationResult`, and `CustomItemRegistrationException`.
 - CIR 0.3 template builders: `WeaponTemplateBuilder`, `ShieldTemplateBuilder`, `ArmorTemplateBuilder`, `BowTemplateBuilder`, `AmmoTemplateBuilder`, `ToolTemplateBuilder`, `FoodTemplateBuilder`, and `MaterialTemplateBuilder`.
+- CIR 0.4 recipe helpers: `VanillaItem`, `CraftingStation`, `ItemRef`, `ItemRefs`, and `ToPrefabName()` extension methods.
 - `CraftingRecipe` with ingredients, crafting station, repair station, station level, amount, enabled flag, require-only-one ingredient, and quality result multiplier.
 - AssetBundles can be loaded from file paths, passed as preloaded `AssetBundle` instances, or loaded from embedded resources with `.FromEmbeddedResource(...)`.
+
+#### Typed Recipe Helpers
+
+- `RecipeBuilder.At(CIRCraftingStation.Forge)` and `RepairAt(CIRCraftingStation.Workbench)` map known stations to Jotunn prefab names.
+- `RecipeBuilder.Requires(VanillaItem.Iron, 10)` maps common Valheim ingredients to prefab names.
+- `RecipeBuilder.Requires(ItemRef.Modded("com.author.mod", "MagicCore"), 1)` soft-links third-party mod items without compile-time references.
+- `ItemRef.Prefab("SomePrefab")` and raw `.Requires("SomePrefab", 1)` remain available for custom or newly added prefabs.
 
 #### Item Templates
 
@@ -122,11 +155,15 @@ CIR-CustomItemRegistry/
   CIR-CustomItemRegistry.sln
   build.ps1
   docs/
+    recipes.md
     templates.md
+    roadmap/
+      developer-helper-api.md
   src/
     CustomItemRegistry/
       API/          Public API contracts and registration facade
       Builders/     Fluent item, recipe, and gear builders
+      Helpers/      Vanilla item, station, and modded item refs
       Templates/    Typed Valheim item template builders
       Patches/      Harmony timing patches
       Plugin/       BepInEx plugin entrypoint
@@ -169,8 +206,9 @@ Debug builds copy the API DLL into `BepInEx/plugins/CustomItemRegistry` and the 
 
 ## Notes For Asset Authors
 
-- Use internal Valheim prefab names for ingredients, such as `Wood`, `Bronze`, `LeatherScraps`, `FineWood`, or `Crystal`.
-- Use Jotunn's accepted crafting station names. Common examples are `piece_workbench`, `forge`, and `piece_cauldron`. Passing `null` or an empty string makes the recipe craftable without a station.
+- Prefer `VanillaItem` and `CraftingStation` for common ingredients and stations. Use raw strings for uncommon or newly added prefabs.
+- Use `ItemRef.Modded("other.mod.guid", "PrefabName")` when depending on a third-party item. CIR logs that source mod GUID if the prefab is missing.
+- Use Jotunn's accepted crafting station names when you pass raw strings. Common examples are `piece_workbench`, `forge`, and `piece_cauldron`. Passing `null` or an empty string makes the recipe craftable without a station.
 - Include an item icon in the `ItemDrop` shared data, pass a direct `Sprite`, or call `.Icon("SpriteAssetName")` for craftable items.
 - Upgrade-only recipe requirements are valid. Use `.Requires("Bronze", 0, 4)` when an ingredient should only be consumed by upgrades.
 - Self-contained mods can embed an AssetBundle in the DLL and call `.FromEmbeddedResource("Namespace.BundleName", typeof(MyPlugin).Assembly, "PrefabName")`.

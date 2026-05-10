@@ -1,4 +1,5 @@
 using ValheimCustomItemRegistry;
+using CIRCraftingStation = ValheimCustomItemRegistry.CraftingStation;
 
 namespace ExampleCustomItemPlugin
 {
@@ -49,6 +50,52 @@ namespace ExampleCustomItemPlugin
                 .Build();
 
             return definition.SharedDataConfigurators.Count == 1;
+        }
+
+        public static bool InvalidVanillaItemFails()
+        {
+            return Fails(CustomItemRegistry.Item("HarnessInvalidVanillaItem")
+                .FromBundle("unused", "UnusedPrefab")
+                .AsMaterial()
+                .Recipe(recipe => recipe
+                    .At(CIRCraftingStation.None)
+                    .Requires((VanillaItem)999, 1))
+                .Build());
+        }
+
+        public static bool InvalidCraftingStationFails()
+        {
+            return Fails(CustomItemRegistry.Item("HarnessInvalidStation")
+                .FromBundle("unused", "UnusedPrefab")
+                .AsMaterial()
+                .Recipe(recipe => recipe
+                    .At((CIRCraftingStation)999)
+                    .Requires(VanillaItem.Wood, 1))
+                .Build());
+        }
+
+        public static bool EmptyItemRefFails()
+        {
+            return Fails(CustomItemRegistry.Item("HarnessEmptyItemRef")
+                .FromBundle("unused", "UnusedPrefab")
+                .AsMaterial()
+                .Recipe(recipe => recipe
+                    .At(CIRCraftingStation.None)
+                    .Requires(ItemRef.Prefab(""), 1))
+                .Build());
+        }
+
+        public static bool ModdedIngredientReferenceBuilds()
+        {
+            CustomItemDefinition definition = CustomItemRegistry.Item("HarnessModdedIngredient")
+                .FromBundle("unused", "UnusedPrefab")
+                .AsMaterial()
+                .Recipe(recipe => recipe
+                    .At(CIRCraftingStation.None)
+                    .Requires(ItemRef.Modded("com.otherauthor.valheim.magicmod", "MagicCore"), 1))
+                .Build();
+
+            return definition.HasRecipe;
         }
 
         private static bool Fails(CustomItemDefinition definition)

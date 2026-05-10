@@ -12,12 +12,34 @@ namespace ValheimCustomItemRegistry
         public int amountPerLevel;
         public bool recover;
 
+        internal string SourceModGuid;
+        internal bool IsVanilla;
+        internal string HelperValidationError;
+
         public Ingredient(string itemName, int amount, int amountPerLevel = 0, bool recover = true)
         {
             this.itemName = itemName;
             this.amount = amount;
             this.amountPerLevel = amountPerLevel;
             this.recover = recover;
+            SourceModGuid = null;
+            IsVanilla = false;
+            HelperValidationError = null;
+        }
+
+        public static Ingredient From(VanillaItem item, int amount, int amountPerLevel = 0, bool recover = true)
+        {
+            return From(ItemRef.Vanilla(item), amount, amountPerLevel, recover);
+        }
+
+        public static Ingredient From(ItemRef item, int amount, int amountPerLevel = 0, bool recover = true)
+        {
+            return new Ingredient(item.PrefabName, amount, amountPerLevel, recover)
+            {
+                SourceModGuid = item.SourceModGuid,
+                IsVanilla = item.IsVanilla,
+                HelperValidationError = item.ValidationError
+            };
         }
     }
 
@@ -34,6 +56,9 @@ namespace ValheimCustomItemRegistry
         public bool? enabled;
         public bool requireOnlyOneIngredient;
         public int qualityResultAmountMultiplier;
+
+        internal string CraftingStationValidationError;
+        internal string RepairStationValidationError;
 
         public CraftingRecipe(
             List<Ingredient> ingredients,
@@ -53,6 +78,8 @@ namespace ValheimCustomItemRegistry
             this.enabled = enabled;
             this.requireOnlyOneIngredient = requireOnlyOneIngredient;
             this.qualityResultAmountMultiplier = qualityResultAmountMultiplier;
+            CraftingStationValidationError = null;
+            RepairStationValidationError = null;
         }
     }
 }

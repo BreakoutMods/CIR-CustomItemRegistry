@@ -15,16 +15,52 @@ namespace ValheimCustomItemRegistry
         private bool enabled = true;
         private bool requireOnlyOneIngredient;
         private int qualityResultAmountMultiplier = 1;
+        private string craftingStationValidationError;
+        private string repairStationValidationError;
 
         public RecipeBuilder At(string station)
         {
             craftingStation = station;
+            craftingStationValidationError = null;
+            return this;
+        }
+
+        public RecipeBuilder At(CraftingStation station)
+        {
+            if (CraftingStationExtensions.TryToPrefabName(station, out string prefabName))
+            {
+                craftingStation = prefabName;
+                craftingStationValidationError = null;
+            }
+            else
+            {
+                craftingStation = null;
+                craftingStationValidationError = $"Invalid CraftingStation value '{(int)station}' for crafting station";
+            }
+
             return this;
         }
 
         public RecipeBuilder RepairAt(string station)
         {
             repairStation = station;
+            repairStationValidationError = null;
+            return this;
+        }
+
+        public RecipeBuilder RepairAt(CraftingStation station)
+        {
+            if (CraftingStationExtensions.TryToPrefabName(station, out string prefabName))
+            {
+                repairStation = prefabName;
+                repairStationValidationError = null;
+            }
+            else
+            {
+                repairStation = null;
+                repairStationValidationError = $"Invalid CraftingStation value '{(int)station}' for repair station";
+            }
+
             return this;
         }
 
@@ -64,9 +100,21 @@ namespace ValheimCustomItemRegistry
             return this;
         }
 
+        public RecipeBuilder Requires(VanillaItem item, int amount, int amountPerLevel = 0, bool recover = true)
+        {
+            ingredients.Add(Ingredient.From(item, amount, amountPerLevel, recover));
+            return this;
+        }
+
+        public RecipeBuilder Requires(ItemRef item, int amount, int amountPerLevel = 0, bool recover = true)
+        {
+            ingredients.Add(Ingredient.From(item, amount, amountPerLevel, recover));
+            return this;
+        }
+
         internal CraftingRecipe Build()
         {
-            return new CraftingRecipe(
+            CraftingRecipe recipe = new CraftingRecipe(
                 ingredients,
                 craftingStation,
                 amount,
@@ -75,6 +123,10 @@ namespace ValheimCustomItemRegistry
                 enabled,
                 requireOnlyOneIngredient,
                 qualityResultAmountMultiplier);
+
+            recipe.CraftingStationValidationError = craftingStationValidationError;
+            recipe.RepairStationValidationError = repairStationValidationError;
+            return recipe;
         }
     }
 }
