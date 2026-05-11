@@ -66,15 +66,15 @@ namespace ValheimCustomItemRegistry
                 GameObject sourcePrefab = assetBundle.LoadAsset<GameObject>(definition.PrefabName);
                 if (!sourcePrefab)
                 {
-                    throw new CustomItemRegistrationException(definition, "AssetBundle does not contain the requested prefab");
+                    throw new CustomItemRegistrationException(definition, CreateMissingAssetMessage(definition, assetBundle, definition.PrefabName, "prefab"));
                 }
 
                 itemPrefab = Object.Instantiate(sourcePrefab);
                 itemPrefab.name = definition.ItemName;
                 itemPrefab.SetActive(false);
 
-                PrepareItemPrefab(itemPrefab);
-                LoadIcon(definition, assetBundle);
+                PrefabPreparationReport preparationReport = PrepareItemPrefab(definition, itemPrefab);
+                string iconSource = LoadIcon(definition, assetBundle);
 
                 ItemConfig itemConfig = CreateItemConfig(definition);
                 CustomItem customItem = new CustomItem(itemPrefab, true, itemConfig);
@@ -93,7 +93,7 @@ namespace ValheimCustomItemRegistry
                 FlushLiveRegistrations();
 
                 ItemRegistrationResult result = ItemRegistrationResult.Registered(definition, itemPrefab, customItem);
-                LogInfo($"Registered custom item '{definition.ItemName}' from bundle '{definition.AssetBundlePath}' prefab '{definition.PrefabName}'");
+                LogRegistrationSuccess(definition, itemPrefab, iconSource, preparationReport);
                 return result;
             }
             catch (Exception exception)
@@ -176,6 +176,26 @@ namespace ValheimCustomItemRegistry
                     RegisterPrefabInObjectDB(item);
                     RegisterRecipeInObjectDB(liveObjectDB, item);
                 }
+            }
+        }
+
+        internal static bool PrepareItemPrefabForTest(CustomItemDefinition definition, GameObject itemPrefab, out IReadOnlyList<string> addedComponents, out IReadOnlyList<string> warnings, out string error)
+        {
+            addedComponents = Array.Empty<string>();
+            warnings = Array.Empty<string>();
+            error = null;
+
+            try
+            {
+                PrefabPreparationReport report = PrepareItemPrefab(definition, itemPrefab);
+                addedComponents = report.AddedComponents;
+                warnings = report.Warnings;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                error = exception.Message;
+                return false;
             }
         }
 
@@ -409,12 +429,54 @@ namespace ValheimCustomItemRegistry
             return Path.GetFullPath(assetBundlePath);
         }
 
-        private static void PrepareItemPrefab(GameObject itemPrefab)
+        private static PrefabPreparationReport PrepareItemPrefab(CustomItemDefinition definition, GameObject itemPrefab)
         {
+            PrefabPreparationOptions options = definition.PrefabPreparation ?? new PrefabPreparationOptions();
+            PrefabPreparationReport report = new PrefabPreparationReport();
+            List<string> missing = new List<string>();
+
             ItemDrop itemDrop = itemPrefab.GetComponent<ItemDrop>();
             if (!itemDrop)
             {
-                throw new CustomItemRegistrationException($"Prefab '{itemPrefab.name}' must include an ItemDrop component");
+                if (options.RequireExistingItemDrop || !options.AutoAddItemDrop)
+                {
+                    missing.Add(nameof(ItemDrop));
+                }
+                else
+                {
+                    itemDrop = itemPrefab.AddComponent<ItemDrop>();
+                    report.AddedComponents.Add(nameof(ItemDrop));
+                    report.CreatedItemDrop = true;
+                }
+            }
+
+            Rigidbody rigidbody = itemPrefab.GetComponent<Rigidbody>();
+            ZNetView zNetView = itemPrefab.GetComponent<ZNetView>();
+            ZSyncTransform zSyncTransform = itemPrefab.GetComponent<ZSyncTransform>();
+            bool hasCollider = itemPrefab.GetComponentsInChildren<Collider>(true).Length > 0;
+
+            if (!options.AutoAddPhysics)
+            {
+                if (!rigidbody) missing.Add(nameof(Rigidbody));
+                if (!zNetView) missing.Add(nameof(ZNetView));
+                if (!zSyncTransform) missing.Add(nameof(ZSyncTransform));
+            }
+
+            if (!hasCollider && !options.WarnOnMissingCollider)
+            {
+                missing.Add(nameof(Collider));
+            }
+
+            if (missing.Count > 0)
+            {
+                throw new CustomItemRegistrationException(
+                    definition,
+                    $"Prefab '{definition.PrefabName}' is missing required components: {string.Join(", ", missing.ToArray())}. Add them in Unity, or opt into CIR auto-preparation with .PrefabPreparation(prep => prep.AutoAddItemDrop().AutoAddPhysics().WarnOnMissingCollider().AllowTextureIconFallback()).");
+            }
+
+            if (itemDrop.m_itemData == null)
+            {
+                itemDrop.m_itemData = new ItemDrop.ItemData();
             }
 
             if (itemDrop.m_itemData.m_shared == null)
@@ -424,34 +486,113 @@ namespace ValheimCustomItemRegistry
 
             if (string.IsNullOrEmpty(itemDrop.m_itemData.m_shared.m_name))
             {
-                itemDrop.m_itemData.m_shared.m_name = "$" + itemPrefab.name.ToLowerInvariant();
+                itemDrop.m_itemData.m_shared.m_name = !string.IsNullOrWhiteSpace(definition.DisplayName)
+                    ? definition.DisplayName
+                    : "$" + definition.ItemName.ToLowerInvariant();
+            }
+
+            if (string.IsNullOrEmpty(itemDrop.m_itemData.m_shared.m_description) && !string.IsNullOrWhiteSpace(definition.Description))
+            {
+                itemDrop.m_itemData.m_shared.m_description = definition.Description;
+            }
+
+            if (report.CreatedItemDrop)
+            {
+                if (!definition.ItemType.HasValue)
+                {
+                    itemDrop.m_itemData.m_shared.m_itemType = ItemDrop.ItemData.ItemType.Material;
+                }
+
+                if (itemDrop.m_itemData.m_shared.m_maxStackSize < 1)
+                {
+                    itemDrop.m_itemData.m_shared.m_maxStackSize = 1;
+                }
+
+                if (itemDrop.m_itemData.m_shared.m_weight <= 0f)
+                {
+                    itemDrop.m_itemData.m_shared.m_weight = 1f;
+                }
+
+                itemDrop.m_itemData.m_shared.m_teleportable = true;
             }
 
             itemDrop.m_itemData.m_dropPrefab = itemPrefab;
 
-            ZNetView zNetView = itemPrefab.GetComponent<ZNetView>();
-            if (!zNetView)
+            if (options.AutoAddPhysics)
             {
-                zNetView = itemPrefab.AddComponent<ZNetView>();
+                if (!rigidbody)
+                {
+                    rigidbody = itemPrefab.AddComponent<Rigidbody>();
+                    report.AddedComponents.Add(nameof(Rigidbody));
+                }
+
+                if (!zNetView)
+                {
+                    zNetView = itemPrefab.AddComponent<ZNetView>();
+                    report.AddedComponents.Add(nameof(ZNetView));
+                }
+
+                zNetView.m_persistent = true;
+
+                if (!zSyncTransform)
+                {
+                    zSyncTransform = itemPrefab.AddComponent<ZSyncTransform>();
+                    report.AddedComponents.Add(nameof(ZSyncTransform));
+                }
+            }
+            else
+            {
+                if (zNetView)
+                {
+                    zNetView.m_persistent = true;
+                }
             }
 
-            zNetView.m_persistent = true;
+            if (options.WarnOnMissingCollider && !hasCollider)
+            {
+                string warning = $"Item '{definition.ItemName}' prefab '{definition.PrefabName}' has no Collider. CIR will not add a guessed collider; add one in Unity for reliable pickup/drop physics.";
+                report.Warnings.Add(warning);
+                LogWarning(warning);
+            }
+
+            return report;
         }
 
-        private static void LoadIcon(CustomItemDefinition definition, AssetBundle assetBundle)
+        private static string LoadIcon(CustomItemDefinition definition, AssetBundle assetBundle)
         {
-            if (definition.Icon || string.IsNullOrWhiteSpace(definition.IconAssetName))
+            if (definition.Icon)
             {
-                return;
+                return "direct Sprite";
+            }
+
+            if (string.IsNullOrWhiteSpace(definition.IconAssetName))
+            {
+                return "prefab/shared data";
             }
 
             Sprite icon = assetBundle.LoadAsset<Sprite>(definition.IconAssetName);
-            if (!icon)
+            if (icon)
             {
-                throw new CustomItemRegistrationException(definition, $"AssetBundle does not contain icon sprite '{definition.IconAssetName}'");
+                definition.Icon = icon;
+                return $"Sprite '{definition.IconAssetName}'";
             }
 
-            definition.Icon = icon;
+            PrefabPreparationOptions options = definition.PrefabPreparation ?? new PrefabPreparationOptions();
+            if (options.AllowTextureIconFallback)
+            {
+                Texture2D texture = assetBundle.LoadAsset<Texture2D>(definition.IconAssetName);
+                if (texture)
+                {
+                    definition.Icon = Sprite.Create(
+                        texture,
+                        new Rect(0f, 0f, texture.width, texture.height),
+                        new Vector2(0.5f, 0.5f));
+                    definition.Icon.name = definition.IconAssetName;
+                    return $"Texture2D '{definition.IconAssetName}' converted to Sprite";
+                }
+            }
+
+            throw new CustomItemRegistrationException(definition, CreateMissingAssetMessage(definition, assetBundle, definition.IconAssetName, options.AllowTextureIconFallback ? "icon Sprite or Texture2D" : "icon Sprite"));
         }
 
         private static ItemConfig CreateItemConfig(CustomItemDefinition definition)
@@ -553,6 +694,107 @@ namespace ValheimCustomItemRegistry
             {
                 throw new CustomItemRegistrationException(definition, "Jotunn custom item wrapper was not created");
             }
+
+            PrefabPreparationOptions options = definition.PrefabPreparation ?? new PrefabPreparationOptions();
+            if (options.ValidateWearableVisuals)
+            {
+                ValidateWearableVisuals(definition, itemPrefab, itemDrop.m_itemData?.m_shared);
+            }
+        }
+
+        private static void ValidateWearableVisuals(CustomItemDefinition definition, GameObject itemPrefab, ItemDrop.ItemData.SharedData shared)
+        {
+            if (shared == null || !IsWearableArmor(shared.m_itemType))
+            {
+                return;
+            }
+
+            SkinnedMeshRenderer[] renderers = itemPrefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            if (renderers == null || renderers.Length == 0)
+            {
+                throw new CustomItemRegistrationException(
+                    definition,
+                    $"Wearable item prefab '{definition.PrefabName}' is type '{shared.m_itemType}' but has no SkinnedMeshRenderer. Valheim wearable armor needs a skinned visual setup; a normal static mesh can register as a material, but will fail or crash when equipped in SetupVisEquipment.");
+            }
+
+            foreach (SkinnedMeshRenderer renderer in renderers)
+            {
+                string rendererPath = GetTransformPath(renderer.transform, itemPrefab.transform);
+                if (renderer.sharedMesh == null)
+                {
+                    throw new CustomItemRegistrationException(definition, $"Wearable item prefab '{definition.PrefabName}' has SkinnedMeshRenderer '{rendererPath}' without a mesh.");
+                }
+
+                if (renderer.rootBone == null)
+                {
+                    throw new CustomItemRegistrationException(definition, $"Wearable item prefab '{definition.PrefabName}' has SkinnedMeshRenderer '{rendererPath}' without rootBone.");
+                }
+
+                if (renderer.bones == null || renderer.bones.Length == 0)
+                {
+                    throw new CustomItemRegistrationException(definition, $"Wearable item prefab '{definition.PrefabName}' has SkinnedMeshRenderer '{rendererPath}' without bones.");
+                }
+
+                if (renderer.bones.Any(bone => bone == null))
+                {
+                    throw new CustomItemRegistrationException(definition, $"Wearable item prefab '{definition.PrefabName}' has SkinnedMeshRenderer '{rendererPath}' with one or more missing bone references.");
+                }
+
+                Material[] materials = renderer.sharedMaterials;
+                if (materials == null || materials.Length == 0 || materials.Any(material => material == null))
+                {
+                    LogWarning($"Wearable item '{definition.ItemName}' prefab '{definition.PrefabName}' renderer '{rendererPath}' has missing material references. The item may equip but render incorrectly.");
+                }
+            }
+
+            if (RequiresAttachSkinHint(shared.m_itemType) && !HasAttachSkinChild(itemPrefab))
+            {
+                LogWarning($"Wearable item '{definition.ItemName}' prefab '{definition.PrefabName}' has skinned renderers but no 'attach_skin...' child. If the item crashes or appears wrong when equipped, base the hierarchy on a vanilla armor prefab and consider Jotunn BoneReorder.ApplyOnEquipmentChanged() for imported armor meshes.");
+            }
+        }
+
+        private static bool IsWearableArmor(ItemDrop.ItemData.ItemType itemType)
+        {
+            return itemType == ItemDrop.ItemData.ItemType.Chest
+                || itemType == ItemDrop.ItemData.ItemType.Legs
+                || itemType == ItemDrop.ItemData.ItemType.Helmet
+                || itemType == ItemDrop.ItemData.ItemType.Shoulder;
+        }
+
+        private static bool RequiresAttachSkinHint(ItemDrop.ItemData.ItemType itemType)
+        {
+            return itemType == ItemDrop.ItemData.ItemType.Chest
+                || itemType == ItemDrop.ItemData.ItemType.Legs
+                || itemType == ItemDrop.ItemData.ItemType.Shoulder;
+        }
+
+        private static bool HasAttachSkinChild(GameObject itemPrefab)
+        {
+            return itemPrefab.GetComponentsInChildren<Transform>(true)
+                .Any(child => child.name.StartsWith("attach_skin", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string GetTransformPath(Transform transform, Transform root)
+        {
+            if (transform == null)
+            {
+                return "<missing transform>";
+            }
+
+            Stack<string> names = new Stack<string>();
+            Transform current = transform;
+            while (current != null)
+            {
+                names.Push(current.name);
+                if (current == root)
+                {
+                    break;
+                }
+
+                current = current.parent;
+            }
+
+            return string.Join("/", names.ToArray());
         }
 
         private static bool CreatesRecipe(CustomItemDefinition definition)
@@ -625,6 +867,104 @@ namespace ValheimCustomItemRegistry
             LogInfo($"Added recipe '{recipe.name}' to ObjectDB");
         }
 
+        private static string CreateMissingAssetMessage(CustomItemDefinition definition, AssetBundle assetBundle, string assetName, string assetKind)
+        {
+            string candidates = CreateAssetCandidateMessage(assetBundle, assetName);
+            return $"AssetBundle '{GetBundleLabel(definition)}' does not contain {assetKind} '{assetName}' for item '{definition.ItemName}' prefab '{definition.PrefabName}'. Asset names are case-sensitive.{candidates}";
+        }
+
+        private static string CreateAssetCandidateMessage(AssetBundle assetBundle, string assetName)
+        {
+            string[] assetNames = GetAssetNames(assetBundle);
+            if (assetNames.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            string normalizedNeedle = assetName ?? string.Empty;
+            List<string> candidates = assetNames
+                .Select(PrettyAssetName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(name => name.IndexOf(normalizedNeedle, StringComparison.OrdinalIgnoreCase) >= 0
+                    || normalizedNeedle.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0
+                    || string.Equals(name, normalizedNeedle, StringComparison.OrdinalIgnoreCase))
+                .Take(12)
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                candidates = assetNames
+                    .Select(PrettyAssetName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(12)
+                    .ToList();
+            }
+
+            return candidates.Count == 0
+                ? string.Empty
+                : " Candidate assets include: " + string.Join(", ", candidates.ToArray()) + ".";
+        }
+
+        private static string[] GetAssetNames(AssetBundle assetBundle)
+        {
+            if (!assetBundle)
+            {
+                return Array.Empty<string>();
+            }
+
+            try
+            {
+                return assetBundle.GetAllAssetNames() ?? Array.Empty<string>();
+            }
+            catch (Exception exception)
+            {
+                LogWarning($"Could not inspect AssetBundle asset names: {exception.Message}");
+                return Array.Empty<string>();
+            }
+        }
+
+        private static string PrettyAssetName(string assetPath)
+        {
+            if (string.IsNullOrWhiteSpace(assetPath))
+            {
+                return string.Empty;
+            }
+
+            string fileName = Path.GetFileNameWithoutExtension(assetPath);
+            return string.IsNullOrWhiteSpace(fileName) ? assetPath : fileName;
+        }
+
+        private static string GetBundleLabel(CustomItemDefinition definition)
+        {
+            if (!string.IsNullOrWhiteSpace(definition.AssetBundlePath))
+            {
+                return definition.AssetBundlePath;
+            }
+
+            return definition.AssetBundle ? definition.AssetBundle.name : "<unknown>";
+        }
+
+        private static void LogRegistrationSuccess(CustomItemDefinition definition, GameObject itemPrefab, string iconSource, PrefabPreparationReport preparationReport)
+        {
+            ItemDrop itemDrop = itemPrefab.GetComponent<ItemDrop>();
+            string itemType = itemDrop && itemDrop.m_itemData != null && itemDrop.m_itemData.m_shared != null
+                ? itemDrop.m_itemData.m_shared.m_itemType.ToString()
+                : "unknown";
+
+            string addedComponents = preparationReport.AddedComponents.Count == 0
+                ? "none"
+                : string.Join(", ", preparationReport.AddedComponents.ToArray());
+
+            string recipeStation = definition.HasRecipe
+                ? (string.IsNullOrWhiteSpace(definition.Recipe.craftingStation) ? "none" : definition.Recipe.craftingStation)
+                : "none";
+
+            LogInfo(
+                $"Registered custom item '{definition.ItemName}' from bundle '{GetBundleLabel(definition)}' prefab '{definition.PrefabName}'. Type={itemType}; icon={iconSource}; recipeStation={recipeStation}; addedComponents={addedComponents}; warnings={preparationReport.Warnings.Count}");
+        }
+
         private static void LogInfo(string message)
         {
             logger?.LogInfo(message);
@@ -647,6 +987,13 @@ namespace ValheimCustomItemRegistry
                 Prefab = prefab;
                 CustomItem = customItem;
             }
+        }
+
+        private sealed class PrefabPreparationReport
+        {
+            public readonly List<string> AddedComponents = new List<string>();
+            public readonly List<string> Warnings = new List<string>();
+            public bool CreatedItemDrop;
         }
     }
 }

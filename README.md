@@ -94,7 +94,7 @@ CustomItemRegistry.RegisterItem(
         1));
 ```
 
-The AssetBundle prefab must include an `ItemDrop` component. If it does not already include a `ZNetView`, CIR adds one and marks it persistent for networked item drops.
+By default, CIR expects your AssetBundle prefab to already contain the required Valheim item components: `ItemDrop`, `Rigidbody`, `ZNetView`, `ZSyncTransform`, and a collider. If any are missing, CIR refuses registration and lists the missing components. For simple test items, you can opt into CIR auto-preparation with `.PrefabPreparation(...)`.
 
 ## Features
 
@@ -108,6 +108,8 @@ The AssetBundle prefab must include an `ItemDrop` component. If it does not alre
 - CIR 0.4 recipe helpers: `VanillaItem`, `CraftingStation`, `ItemRef`, `ItemRefs`, and `ToPrefabName()` extension methods.
 - `CraftingRecipe` with ingredients, crafting station, repair station, station level, amount, enabled flag, require-only-one ingredient, and quality result multiplier.
 - AssetBundles can be loaded from file paths, passed as preloaded `AssetBundle` instances, or loaded from embedded resources with `.FromEmbeddedResource(...)`.
+- `CustomItemBuilder.PrefabPreparation(...)` opts into safe auto-preparation for simple prefabs or adjusts strict validation behavior.
+- Wearable armor validation checks `Chest`, `Legs`, `Helmet`, and `Shoulder` prefabs for skinned mesh setup before registration, catching common `SetupVisEquipment` equip crashes early.
 
 #### Typed Recipe Helpers
 
@@ -127,6 +129,7 @@ The AssetBundle prefab must include an `ItemDrop` component. If it does not alre
 #### Item Metadata
 
 - Display name, description, icon sprite by AssetBundle asset name, or direct `Sprite`.
+- Icon asset names load `Sprite` by default. Opt-in prefab preparation can allow CIR to convert a `Texture2D` with the same name into a runtime sprite.
 - Weight, stack size, durability, max quality, tool tier, teleportable flag, and repairable flag.
 - Item type helpers for weapons, shields, bows, ammo, tools, armor slots, materials, consumables, shoulder items, trinkets, torches, and utility items.
 - Armor, block power, block force, parry, attack force, movement modifier, base damages, per-level damages, and damage modifiers.
@@ -137,12 +140,53 @@ The AssetBundle prefab must include an `ItemDrop` component. If it does not alre
 
 - Loads AssetBundles from absolute paths or paths relative to `BepInEx/plugins`.
 - Loads and clones the requested prefab, renaming the clone to the public item name.
+- Strictly validates missing `ItemDrop`, `Rigidbody`, `ZNetView`, `ZSyncTransform`, and collider components by default.
+- Can prepare simple prefabs by adding missing `ItemDrop`, `Rigidbody`, `ZNetView`, and `ZSyncTransform` when explicitly enabled.
+- Warns when an auto-prepared prefab has no collider, but does not add a guessed collider.
 - Builds Jotunn item and recipe data from CIR definitions.
 - Registers prefabs through Jotunn's `PrefabManager` for multiplayer-safe ZNetScene registration.
 - Registers items and recipes through Jotunn's `ItemManager`.
 - Includes Harmony timing patches on `ObjectDB.CopyOtherDB` and `ZNetScene.Awake` to flush items into live databases when Valheim creates or copies them.
-- Validates missing bundle paths, missing prefab assets, missing `ItemDrop`, duplicate item names, invalid recipes, and missing craftable item icons with clearer log messages.
+- Validates missing bundle paths, missing prefab assets, duplicate item names, invalid recipes, and missing craftable item icons with clearer log messages and AssetBundle candidate names.
 - Validates template-specific required fields with the template name in the error message.
+
+## Minimal Unity Prefab
+
+For production items, build the Unity prefab like a Valheim item and include `ItemDrop`, `Rigidbody`, `ZNetView`, `ZSyncTransform`, and a collider.
+
+For quick test items, the Unity prefab can be very small if you explicitly opt into auto-preparation:
+
+```text
+AssetBundle
+  MyItemPrefab
+    visible mesh/model
+    collider recommended
+  MyItemIcon Sprite or Texture2D
+```
+
+CIR will add the common Valheim item scripts at registration time only when `.PrefabPreparation(...)` enables it. Use templates such as `.AsMaterial(...)`, `.AsArmorChest(...)`, or `.AsSword(...)` so CIR knows which item type and stats to apply.
+
+CIR does not repair Unity `Missing Script` references, does not choose collider shape/size, and does not guess vanilla asset references. If you use vanilla assets, use Jotunn `JVLmock_...` references.
+
+Wearable armor is stricter than normal items. `.AsArmorChest(...)`, `.AsArmorLegs(...)`, `.AsHelmet(...)`, and `.AsCape(...)` need a real Valheim-style wearable visual in the prefab: at least one `SkinnedMeshRenderer` with a mesh, `rootBone`, and valid bones. Chest, legs, and cape prefabs should usually follow the vanilla `attach_skin...` hierarchy. A static mesh plus icon is fine for materials, but not for equipped armor.
+
+If imported armor equips with broken visuals or null references even though the skinned renderer exists, base the prefab on a vanilla armor item and consider calling Jotunn `BoneReorder.ApplyOnEquipmentChanged()` from your plugin.
+
+Advanced mods with their own custom equipment visual pipeline can disable only this check with `.PrefabPreparation(prep => prep.ValidateWearableVisuals(false))`.
+
+Example opt-in for a simple mesh prefab:
+
+```csharp
+CustomItemRegistry.Item("SimpleItem")
+    .FromBundle(assetBundlePath, "SimpleItemPrefab")
+    .PrefabPreparation(prep => prep
+        .AutoAddItemDrop()
+        .AutoAddPhysics()
+        .WarnOnMissingCollider()
+        .AllowTextureIconFallback())
+    .AsMaterial()
+    .Register();
+```
 
 #### Developer Example
 
@@ -210,6 +254,8 @@ Debug builds copy the API DLL into `BepInEx/plugins/CustomItemRegistry` and the 
 - Use `ItemRef.Modded("other.mod.guid", "PrefabName")` when depending on a third-party item. CIR logs that source mod GUID if the prefab is missing.
 - Use Jotunn's accepted crafting station names when you pass raw strings. Common examples are `piece_workbench`, `forge`, and `piece_cauldron`. Passing `null` or an empty string makes the recipe craftable without a station.
 - Include an item icon in the `ItemDrop` shared data, pass a direct `Sprite`, or call `.Icon("SpriteAssetName")` for craftable items.
+- `.Icon("AssetName")` can also use a `Texture2D` with the same name if no `Sprite` exists when `AllowTextureIconFallback()` is enabled.
+- Add colliders in Unity for reliable drop, pickup, and physics behavior. Strict mode requires one; auto-preparation mode can warn instead.
 - Upgrade-only recipe requirements are valid. Use `.Requires("Bronze", 0, 4)` when an ingredient should only be consumed by upgrades.
 - Self-contained mods can embed an AssetBundle in the DLL and call `.FromEmbeddedResource("Namespace.BundleName", typeof(MyPlugin).Assembly, "PrefabName")`.
 - Use templates for normal items first. Drop to `.Gear(...)` or `.ConfigureSharedData(...)` only for unusual behavior.

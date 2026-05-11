@@ -15,7 +15,7 @@ namespace ExampleCustomItemPlugin
     {
         public const string PluginGuid = "com.valheimcustomitemregistry.example";
         public const string PluginName = "Example Custom Item Plugin";
-        public const string PluginVersion = "0.4.0";
+        public const string PluginVersion = "0.5.0";
 
         private void Awake()
         {
@@ -26,6 +26,7 @@ namespace ExampleCustomItemPlugin
             RegisterDefinitionExample(assetBundlePath);
             RegisterTryExample(assetBundlePath);
             RegisterLegacyExample(assetBundlePath);
+            RegisterMinimalPrefabExample(assetBundlePath);
             CompileTemplateExamples(assetBundlePath);
             CompileRecipeHelperExamples(assetBundlePath);
         }
@@ -139,6 +140,32 @@ namespace ExampleCustomItemPlugin
                         1,
                         repairStation: "piece_workbench",
                         minStationLevel: 1));
+            });
+        }
+
+        private void RegisterMinimalPrefabExample(string assetBundlePath)
+        {
+            TryExample("minimal prefab item", () =>
+            {
+                CustomItemRegistry.Item("ExampleSimpleOre")
+                    .FromBundle(assetBundlePath, "ExampleSimpleOrePrefab")
+                    .DisplayName("$item_examplesimpleore")
+                    .Description("$item_examplesimpleore_desc")
+                    .Icon("ExampleSimpleOreIcon")
+                    .AsMaterial(material => material
+                        .StackSize(30)
+                        .Weight(2f)
+                        .Value(5))
+                    .PrefabPreparation(prep => prep
+                        .AutoAddItemDrop()
+                        .AutoAddPhysics()
+                        .WarnOnMissingCollider()
+                        .AllowTextureIconFallback())
+                    .Recipe(recipe => recipe
+                        .At(CIRCraftingStation.None)
+                        .Amount(1)
+                        .Requires(VanillaItem.Stone, 2))
+                    .Register();
             });
         }
 

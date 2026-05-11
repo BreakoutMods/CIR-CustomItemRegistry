@@ -17,6 +17,7 @@ namespace ValheimCustomItemRegistry
         public string Description { get; set; }
         public string IconAssetName { get; set; }
         public Sprite Icon { get; set; }
+        public PrefabPreparationOptions PrefabPreparation { get; set; }
         public CraftingRecipe Recipe { get; set; }
         public bool HasRecipe { get; set; }
 
@@ -54,6 +55,7 @@ namespace ValheimCustomItemRegistry
         public CustomItemDefinition()
         {
             SharedDataConfigurators = new List<Action<ItemDrop.ItemData.SharedData>>();
+            PrefabPreparation = new PrefabPreparationOptions();
         }
 
         public CustomItemDefinition(string itemName)

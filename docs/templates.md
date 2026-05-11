@@ -23,6 +23,8 @@ CIR templates are typed shortcuts over the normal `CustomItemDefinition` pipelin
 | `.AsFood(...)` | `Consumable` | stack 10, quality 1, non-durable, non-repairable | health, stamina, or eitr |
 | `.AsMaterial(...)` | `Material` | stack 50, quality 1, non-durable, non-repairable | none |
 
+Armor templates register wearable items, not inventory-only meshes. The prefab must include a valid `SkinnedMeshRenderer` with a mesh, `rootBone`, and bones. Chest, legs, and cape prefabs should usually keep Valheim's `attach_skin...` hierarchy; CIR warns when that hierarchy is missing because it can lead to equip-time `SetupVisEquipment` failures.
+
 ## Examples
 
 ```csharp

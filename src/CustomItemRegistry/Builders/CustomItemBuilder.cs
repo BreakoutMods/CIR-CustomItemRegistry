@@ -65,6 +65,13 @@ namespace ValheimCustomItemRegistry
             return this;
         }
 
+        public CustomItemBuilder PrefabPreparation(Action<PrefabPreparationBuilder> configure)
+        {
+            PrefabPreparationBuilder builder = new PrefabPreparationBuilder(definition.PrefabPreparation);
+            configure?.Invoke(builder);
+            return this;
+        }
+
         public CustomItemBuilder Recipe(Action<RecipeBuilder> configure)
         {
             RecipeBuilder builder = new RecipeBuilder();

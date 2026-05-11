@@ -3,6 +3,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>ExampleCustomItemPlugin</RootNamespace>
     <AssemblyName>ExampleCustomItemPlugin</AssemblyName>
+    <Version>0.5.0</Version>
     <Authors>BreakoutMods</Authors>
     <Company>BreakoutMods</Company>
     <RepositoryUrl>https://github.com/BreakoutMods/CIR-CustomItemRegistry</RepositoryUrl>

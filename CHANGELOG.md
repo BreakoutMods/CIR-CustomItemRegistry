@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0
+
+- Added strict prefab validation that lists missing `ItemDrop`, `Rigidbody`, `ZNetView`, `ZSyncTransform`, and collider components.
+- Added opt-in safe prefab preparation that can create missing `ItemDrop`, `Rigidbody`, `ZNetView`, and `ZSyncTransform` components.
+- Added `PrefabPreparationBuilder` controls for ItemDrop auto-add, physics auto-add, collider warnings, and Texture2D icon fallback.
+- Added opt-in Texture2D-to-Sprite fallback for `.Icon("AssetName")`.
+- Added strict wearable armor visual validation for `Chest`, `Legs`, `Helmet`, and `Shoulder` items to catch missing `SkinnedMeshRenderer`, mesh, root bone, or bone references before equip-time crashes.
+- Improved missing prefab and icon AssetBundle diagnostics with case-sensitivity hints and candidate asset names.
+- Added grouped registration logging with item type, icon source, recipe station, added components, and warning count.
+- Added prefab preparation validation harness cases for simple scriptless prefabs.
+
 ## 0.4.0
 
 - Added typed recipe helpers with `VanillaItem`, `CraftingStation`, and `ItemRef`.
