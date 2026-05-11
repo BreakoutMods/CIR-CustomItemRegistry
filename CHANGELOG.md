@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- Added optional YAML and JSON item-pack loading through soft runtime detection of `YamlDotNet` and `Newtonsoft.Json`.
+- Added `LoadItemPacks`, `LoadItemPacksFromDirectory`, `LoadItemPack`, and `GetItemPackParserStatus` APIs.
+- Added item-pack result and diagnostic types for per-file and per-item load errors.
+- Added recursive auto-load from `BepInEx/config/CustomItemRegistry/packs`.
+- Added raw-definition item-pack docs and examples.
+
 ## 0.5.0
 
 - Added strict prefab validation that lists missing `ItemDrop`, `Rigidbody`, `ZNetView`, `ZSyncTransform`, and collider components.

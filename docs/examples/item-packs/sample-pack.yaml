@@ -1,0 +1,44 @@
+name: Breakout Sample YAML Pack
+version: 1.0.0
+items:
+  - itemName: BM_SampleMaterial
+    assetBundle: assets/bm_items
+    prefabName: BM_SampleMaterial
+    displayName: $item_bm_samplematerial
+    description: A sample custom material.
+    icon: BM_SampleMaterialIcon
+    itemType: Material
+    weight: 1
+    stackSize: 50
+    prefabPreparation:
+      autoAddItemDrop: true
+      autoAddPhysics: true
+      warnOnMissingCollider: true
+      allowTextureIconFallback: true
+
+  - itemName: BM_SampleSword
+    assetBundle: assets/bm_items
+    prefabName: BM_SampleSword
+    displayName: $item_bm_samplesword
+    description: A sample custom sword.
+    icon: BM_SampleSwordIcon
+    itemType: OneHandedWeapon
+    weight: 2
+    stackSize: 1
+    durability: 200
+    maxQuality: 4
+    damages:
+      slash: 42
+    recipe:
+      craftingStation: Forge
+      repairStation: Forge
+      minStationLevel: 2
+      amount: 1
+      ingredients:
+        - item: Iron
+          amount: 12
+        - item: FineWood
+          amount: 4
+        - item: MagicCore
+          amount: 1
+          sourceModGuid: com.otherauthor.valheim.magicmod

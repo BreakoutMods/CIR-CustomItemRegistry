@@ -10,7 +10,7 @@ Community: [BreakoutMods Discord](https://discord.gg/ArmCF3nscW)
 
 Support development: [BreakoutMods Patreon](https://www.patreon.com/breakoutmods)
 
-The library is built for BepInEx 5.x, Harmony, and Jotunn. It leans on Jotunn's `PrefabManager` and `ItemManager` for multiplayer-safe prefab and recipe registration, while exposing the original small API, the CIR 0.2 raw builder API, CIR 0.3 typed item templates, and CIR 0.4 typed recipe helpers.
+The library is built for BepInEx 5.x, Harmony, and Jotunn. It leans on Jotunn's `PrefabManager` and `ItemManager` for multiplayer-safe prefab and recipe registration, while exposing the original small API, the CIR 0.2 raw builder API, CIR 0.3 typed item templates, CIR 0.4 typed recipe helpers, and CIR 0.6 optional YAML/JSON item packs.
 
 ## Usage
 
@@ -96,6 +96,31 @@ CustomItemRegistry.RegisterItem(
 
 By default, CIR expects your AssetBundle prefab to already contain the required Valheim item components: `ItemDrop`, `Rigidbody`, `ZNetView`, `ZSyncTransform`, and a collider. If any are missing, CIR refuses registration and lists the missing components. For simple test items, you can opt into CIR auto-preparation with `.PrefabPreparation(...)`.
 
+## YAML/JSON Item Packs
+
+CIR can load raw item definitions from files without making YamlDotNet or Json.NET mandatory. Put item packs in:
+
+```text
+BepInEx/config/CustomItemRegistry/packs
+```
+
+CIR scans that folder recursively for `.yaml`, `.yml`, and `.json` on startup. YAML support activates when `ValheimModding-YamlDotNet` is installed. JSON support activates when `ValheimModding-JsonDotNET` is installed. CIR does not ship those DLLs inside its own package.
+
+Mods can also load packs from their own folder:
+
+```csharp
+CustomItemRegistry.LoadItemPacksFromDirectory(
+    Path.Combine(Path.GetDirectoryName(Info.Location), "packs"));
+```
+
+Check optional parser availability with:
+
+```csharp
+ItemPackParserStatus status = CustomItemRegistry.GetItemPackParserStatus();
+```
+
+See `docs/item-packs.md` for the schema, examples, and asset path rules.
+
 ## Features
 
 #### API
@@ -103,6 +128,7 @@ By default, CIR expects your AssetBundle prefab to already contain the required 
 - `CustomItemRegistry.Item(string itemName)` fluent builder entrypoint.
 - `RegisterItem(string itemName, string assetBundlePath, string prefabName, CraftingRecipe recipe)` legacy API.
 - `RegisterItem(CustomItemDefinition definition)`, `TryRegisterItem(...)`, and `RegisterItems(...)`.
+- `LoadItemPacks(...)`, `LoadItemPacksFromDirectory(...)`, `LoadItemPack(...)`, and `GetItemPackParserStatus()` for optional YAML/JSON packs.
 - `CustomItemBuilder`, `RecipeBuilder`, `GearBuilder`, `CustomItemDefinition`, `ItemRegistrationResult`, and `CustomItemRegistrationException`.
 - CIR 0.3 template builders: `WeaponTemplateBuilder`, `ShieldTemplateBuilder`, `ArmorTemplateBuilder`, `BowTemplateBuilder`, `AmmoTemplateBuilder`, `ToolTemplateBuilder`, `FoodTemplateBuilder`, and `MaterialTemplateBuilder`.
 - CIR 0.4 recipe helpers: `VanillaItem`, `CraftingStation`, `ItemRef`, `ItemRefs`, and `ToPrefabName()` extension methods.
@@ -200,6 +226,7 @@ CIR-CustomItemRegistry/
   build.ps1
   docs/
     recipes.md
+    item-packs.md
     templates.md
     roadmap/
       developer-helper-api.md
@@ -208,6 +235,7 @@ CIR-CustomItemRegistry/
       API/          Public API contracts and registration facade
       Builders/     Fluent item, recipe, and gear builders
       Helpers/      Vanilla item, station, and modded item refs
+      ItemPacks/    Optional YAML/JSON pack parsers and DTO mapping
       Templates/    Typed Valheim item template builders
       Patches/      Harmony timing patches
       Plugin/       BepInEx plugin entrypoint

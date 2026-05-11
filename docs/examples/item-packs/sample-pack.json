@@ -1,0 +1,34 @@
+{
+  "name": "Breakout Sample JSON Pack",
+  "version": "1.0.0",
+  "items": [
+    {
+      "itemName": "BM_SampleArmorChest",
+      "assetBundle": "assets/bm_items",
+      "prefabName": "BM_SampleArmorChest",
+      "displayName": "$item_bm_samplearmor",
+      "description": "A sample custom armor chest.",
+      "icon": "BM_SampleArmorIcon",
+      "itemType": "Chest",
+      "weight": 10,
+      "stackSize": 1,
+      "durability": 1000,
+      "durabilityPerLevel": 200,
+      "maxQuality": 4,
+      "armor": 24,
+      "armorPerLevel": 3,
+      "recipe": {
+        "craftingStation": "Forge",
+        "repairStation": "Forge",
+        "minStationLevel": 1,
+        "amount": 1,
+        "ingredients": [
+          {
+            "item": "Iron",
+            "amount": 20
+          }
+        ]
+      }
+    }
+  ]
+}

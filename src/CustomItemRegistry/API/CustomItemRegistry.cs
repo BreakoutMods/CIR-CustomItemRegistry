@@ -149,6 +149,38 @@ namespace ValheimCustomItemRegistry
             return results;
         }
 
+        /// <summary>
+        /// Load item packs from the default CIR config folder.
+        /// </summary>
+        public static ItemPackLoadResult LoadItemPacks()
+        {
+            return ItemPackLoader.LoadDefault(null);
+        }
+
+        /// <summary>
+        /// Load item packs recursively from a directory.
+        /// </summary>
+        public static ItemPackLoadResult LoadItemPacksFromDirectory(string directory, ItemPackLoadOptions options = null)
+        {
+            return ItemPackLoader.LoadDirectory(directory, options);
+        }
+
+        /// <summary>
+        /// Load one YAML or JSON item-pack file.
+        /// </summary>
+        public static ItemPackLoadResult LoadItemPack(string filePath, ItemPackLoadOptions options = null)
+        {
+            return ItemPackLoader.LoadFile(filePath, options);
+        }
+
+        /// <summary>
+        /// Report which optional YAML and JSON parser dependencies are available.
+        /// </summary>
+        public static ItemPackParserStatus GetItemPackParserStatus()
+        {
+            return ItemPackLoader.GetParserStatus();
+        }
+
         internal static void SetLogger(ManualLogSource manualLogSource)
         {
             logger = manualLogSource;
@@ -965,12 +997,12 @@ namespace ValheimCustomItemRegistry
                 $"Registered custom item '{definition.ItemName}' from bundle '{GetBundleLabel(definition)}' prefab '{definition.PrefabName}'. Type={itemType}; icon={iconSource}; recipeStation={recipeStation}; addedComponents={addedComponents}; warnings={preparationReport.Warnings.Count}");
         }
 
-        private static void LogInfo(string message)
+        internal static void LogInfo(string message)
         {
             logger?.LogInfo(message);
         }
 
-        private static void LogWarning(string message)
+        internal static void LogWarning(string message)
         {
             logger?.LogWarning(message);
         }
