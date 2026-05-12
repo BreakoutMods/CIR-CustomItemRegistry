@@ -1,6 +1,6 @@
 {
   "name": "CustomItemRegistry",
-  "version_number": "0.6.0",
+  "version_number": "0.6.1",
   "website_url": "https://github.com/BreakoutMods/CIR-CustomItemRegistry",
   "description": "BreakoutMods CIR is a BepInEx and Jotunn powered modding API for registering custom 3D item prefabs from AssetBundles.",
   "dependencies": [

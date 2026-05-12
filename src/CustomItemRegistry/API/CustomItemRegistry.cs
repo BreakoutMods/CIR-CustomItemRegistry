@@ -69,6 +69,22 @@ namespace ValheimCustomItemRegistry
                     throw new CustomItemRegistrationException(definition, CreateMissingAssetMessage(definition, assetBundle, definition.PrefabName, "prefab"));
                 }
 
+                ItemDrop sourceItemDrop = sourcePrefab.GetComponent<ItemDrop>();
+                if (sourceItemDrop != null)
+                {
+                    bool itemDataWasNull = sourceItemDrop.m_itemData == null;
+                    if (itemDataWasNull)
+                        sourceItemDrop.m_itemData = new ItemDrop.ItemData();
+                    bool sharedWasNull = sourceItemDrop.m_itemData.m_shared == null;
+                    if (sharedWasNull)
+                        sourceItemDrop.m_itemData.m_shared = new ItemDrop.ItemData.SharedData();
+                    if (itemDataWasNull || sharedWasNull)
+                    {
+                        string nullFields = itemDataWasNull ? "m_itemData and m_itemData.m_shared" : "m_itemData.m_shared";
+                        LogWarning($"Prefab '{definition.PrefabName}' for item '{definition.ItemName}' has an ItemDrop component with uninitialized {nullFields}. CIR initialized them to prevent a crash in ItemDrop.Awake(). Set up the ItemDrop component in Unity to remove this warning.");
+                    }
+                }
+
                 itemPrefab = Object.Instantiate(sourcePrefab);
                 itemPrefab.name = definition.ItemName;
                 itemPrefab.SetActive(false);

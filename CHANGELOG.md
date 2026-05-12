@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Fixed `NullReferenceException` in `ItemDrop.Awake()` that occurred when registering item prefabs whose `ItemDrop` component had uninitialized `m_itemData` or `m_itemData.m_shared`. CIR now initializes those fields on the source prefab before calling `Object.Instantiate()`, preventing the crash and the downstream `SetupVisEquipment` NRE when the item was later equipped.
+
 ## 0.6.0
 
 - Added optional YAML and JSON item-pack loading through soft runtime detection of `YamlDotNet` and `Newtonsoft.Json`.
