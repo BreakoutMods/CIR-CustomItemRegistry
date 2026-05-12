@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2
+
+- Fixed `NullReferenceException` in `ItemDrop.Awake()` that occurred when CIR instantiated item prefabs during BepInEx plugin loading, before any ZNetScene exists. Added a Harmony prefix on `ItemDrop.Awake` that skips execution when the item has no valid ZDO, matching the pattern used by vanilla Valheim for non-world-instantiated objects. Live in-world items created through ZNetScene are unaffected.
+
 ## 0.6.1
 
 - Fixed `NullReferenceException` in `ItemDrop.Awake()` that occurred when registering item prefabs whose `ItemDrop` component had uninitialized `m_itemData` or `m_itemData.m_shared`. CIR now initializes those fields on the source prefab before calling `Object.Instantiate()`, preventing the crash and the downstream `SetupVisEquipment` NRE when the item was later equipped.
